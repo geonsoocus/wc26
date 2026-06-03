@@ -57,7 +57,7 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number } }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
@@ -86,17 +86,17 @@ const SCENARIO_DATA = {
       { slot: 3, country: null, unlocked: false },
     ],
     friends: [
-      { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", hasProfile: true, stats: { match: 12, level: 8, praise: 45, pom: 3 } },
-      { name: "히어로", country: "FRA", imageUrl: "/img/profile_hero.png", hasProfile: true, stats: { match: 8, level: 6, praise: 32, pom: 1 } },
-      { name: "호두", country: "ARG", imageUrl: "/img/profile_hodoo.png", hasProfile: true, stats: { match: 15, level: 9, praise: 58, pom: 5 } },
-      { name: "라임", country: "ESP", imageUrl: "/img/profile_lime.png", hasProfile: true, stats: { match: 5, level: 4, praise: 18, pom: 0 } },
-      { name: "막국", country: "GER", imageUrl: "/img/profile_macgook.png", hasProfile: true, stats: { match: 10, level: 7, praise: 41, pom: 2 } },
-      { name: "큐", country: "KOR", imageUrl: "/img/profile_q.png", hasProfile: true, stats: { match: 20, level: 10, praise: 72, pom: 7 } },
-      { name: "제리", country: "JPN", imageUrl: "/img/profile_zerry.png", hasProfile: true, stats: { match: 3, level: 3, praise: 12, pom: 0 } },
-      { name: "정남", country: "NED", imageUrl: "/img/profile_jeongnam.png", hasProfile: true, stats: { match: 9, level: 6, praise: 35, pom: 2 } },
-      { name: "민수", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 5, level: 3, praise: 10, pom: 0 } },
-      { name: "지은", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 8, level: 5, praise: 20, pom: 1 } },
-      { name: "태영", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 2, level: 2, praise: 3, pom: 0 } },
+      { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", hasProfile: true, stats: { match: 12, level: 8, praise: 45, pom: 3, manner: 4.8 } },
+      { name: "히어로", country: "FRA", imageUrl: "/img/profile_hero.png", hasProfile: true, stats: { match: 8, level: 6, praise: 32, pom: 1, manner: 4.2 } },
+      { name: "호두", country: "ARG", imageUrl: "/img/profile_hodoo.png", hasProfile: true, stats: { match: 15, level: 9, praise: 58, pom: 5, manner: 4.9 } },
+      { name: "라임", country: "ESP", imageUrl: "/img/profile_lime.png", hasProfile: true, stats: { match: 5, level: 4, praise: 18, pom: 0, manner: 3.8 } },
+      { name: "막국", country: "GER", imageUrl: "/img/profile_macgook.png", hasProfile: true, stats: { match: 10, level: 7, praise: 41, pom: 2, manner: 4.5 } },
+      { name: "큐", country: "KOR", imageUrl: "/img/profile_q.png", hasProfile: true, stats: { match: 20, level: 10, praise: 72, pom: 7, manner: 5.0 } },
+      { name: "제리", country: "JPN", imageUrl: "/img/profile_zerry.png", hasProfile: true, stats: { match: 3, level: 3, praise: 12, pom: 0, manner: 4.0 } },
+      { name: "정남", country: "NED", imageUrl: "/img/profile_jeongnam.png", hasProfile: true, stats: { match: 9, level: 6, praise: 35, pom: 2, manner: 4.6 } },
+      { name: "민수", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 5, level: 3, praise: 10, pom: 0, manner: 3.5 } },
+      { name: "지은", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 8, level: 5, praise: 20, pom: 1, manner: 4.1 } },
+      { name: "태영", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 2, level: 2, praise: 3, pom: 0, manner: 3.2 } },
     ],
     hasProfile: true,
     matchMission: { completed: 1, total: 3 },
@@ -118,7 +118,7 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number } }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
@@ -857,7 +857,7 @@ type FriendView = "card" | "list";
 
 function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario }) {
   const [view, setView] = useState<FriendView>("card");
-  const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } } | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } } | null>(null);
   const selectedCountry = selectedFriend ? COUNTRIES.find((c) => c.code === selectedFriend.country)! : null;
 
   useEffect(() => {
@@ -1025,19 +1025,21 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                 </div>
               </div>
             ) : (
-              /* List View */
+              /* List View - sorted by manner desc */
               <div className="mt-6">
                 {/* Header */}
                 <div className="flex items-center px-3 py-2 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
                   <div className="w-14 flex-shrink-0" />
                   <div className="flex-1">이름</div>
-                  <div className="w-12 text-center">매치</div>
-                  <div className="w-12 text-center">칭찬</div>
-                  <div className="w-12 text-center">POM</div>
+                  <div className="w-10 text-center">매너</div>
+                  <div className="w-10 text-center">매치</div>
+                  <div className="w-10 text-center">칭찬</div>
+                  <div className="w-10 text-center">POM</div>
                 </div>
                 <div className="space-y-1">
-                  {withProfile.map((friend) => {
+                  {[...withProfile].sort((a, b) => (b.stats?.manner ?? 0) - (a.stats?.manner ?? 0)).map((friend) => {
                     const country = COUNTRIES.find((c) => c.code === friend.country)!;
+                    const manner = friend.stats?.manner ?? 0;
                     return (
                       <button
                         key={friend.name}
@@ -1055,9 +1057,10 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                           </div>
                         </div>
                         <div className="flex-1 text-left text-sm font-bold text-surface-dark truncate">{friend.name}</div>
-                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.match ?? 0}</div>
-                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.praise ?? 0}</div>
-                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.pom ?? 0}</div>
+                        <div className={`w-10 text-center text-sm font-russo ${manner >= 4.5 ? "text-accent-green" : manner >= 4.0 ? "text-accent-blue" : "text-surface-dark"}`}>{manner.toFixed(1)}</div>
+                        <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.match ?? 0}</div>
+                        <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.praise ?? 0}</div>
+                        <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.pom ?? 0}</div>
                       </button>
                     );
                   })}
