@@ -691,7 +691,7 @@ function MainTab({
 
 // ─── Friends Tab ───
 function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario }) {
-  const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null } | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } } | null>(null);
   const selectedCountry = selectedFriend ? COUNTRIES.find((c) => c.code === selectedFriend.country)! : null;
 
   useEffect(() => {
