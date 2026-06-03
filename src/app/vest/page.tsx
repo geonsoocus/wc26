@@ -853,7 +853,10 @@ function MatchMission({ completed }: { completed: number }) {
 }
 
 // ─── Friends Tab ───
+type FriendView = "card" | "list";
+
 function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario }) {
+  const [view, setView] = useState<FriendView>("card");
   const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } } | null>(null);
   const selectedCountry = selectedFriend ? COUNTRIES.find((c) => c.code === selectedFriend.country)! : null;
 
@@ -952,7 +955,29 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
         const withProfile = data.friends.filter(f => f.hasProfile !== false);
         const withoutProfile = data.friends.filter(f => f.hasProfile === false);
         return (<>
-          <h2 className="text-xl font-extrabold text-surface-dark">친구들</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-extrabold text-surface-dark">친구들</h2>
+            {data.friends.length > 0 && (
+              <div className="flex items-center rounded-lg bg-surface-hover p-0.5">
+                <button
+                  onClick={() => setView("card")}
+                  className={`rounded-md px-2.5 py-1 transition-all ${view === "card" ? "bg-white shadow-sm" : ""}`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={view === "card" ? "#22252a" : "#676d7e"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" />
+                  </svg>
+                </button>
+                <button
+                  onClick={() => setView("list")}
+                  className={`rounded-md px-2.5 py-1 transition-all ${view === "list" ? "bg-white shadow-sm" : ""}`}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={view === "list" ? "#22252a" : "#676d7e"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            )}
+          </div>
           <p className="mt-1 text-xs text-on-surface-variant">친구들의 월드컵 프로필을 확인해보세요</p>
 
           {data.friends.length === 0 ? (
@@ -963,41 +988,82 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
               <button className="mt-4 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white">친구 초대하기</button>
             </div>
           ) : (<>
-            {/* Friends with profile */}
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              {withProfile.map((friend) => {
-                const country = COUNTRIES.find((c) => c.code === friend.country)!;
-                return (
-                  <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
-                    <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        {friend.imageUrl ? (
-                          <img src={friend.imageUrl} alt={friend.name} className="h-full w-full object-cover" draggable={false} />
-                        ) : (
-                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/20">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.5}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+            {view === "card" ? (
+              /* Card View */
+              <div className="mt-6 grid grid-cols-3 gap-3">
+                {withProfile.map((friend) => {
+                  const country = COUNTRIES.find((c) => c.code === friend.country)!;
+                  return (
+                    <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
+                      <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          {friend.imageUrl ? (
+                            <img src={friend.imageUrl} alt={friend.name} className="h-full w-full object-cover" draggable={false} />
+                          ) : (
+                            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/20">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.5}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute bottom-0 left-0 flex flex-col">
+                          <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
+                            <TwemojiFlag emoji={country.flag} size={18} />
                           </div>
-                        )}
-                      </div>
-                      <div className="absolute bottom-0 left-0 flex flex-col">
-                        <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
-                          <TwemojiFlag emoji={country.flag} size={18} />
-                        </div>
-                        <div className="flex items-center justify-center w-6 bg-white p-0.5">
-                          <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
+                          <div className="flex items-center justify-center w-6 bg-white p-0.5">
+                            <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    </button>
+                  );
+                })}
+                <div className="relative" style={{ paddingBottom: "150%" }}>
+                  <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
+                    <span className="text-[10px] font-medium">친구 초대</span>
                   </button>
-                );
-              })}
-              <div className="relative" style={{ paddingBottom: "150%" }}>
-                <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
-                  <span className="text-[10px] font-medium">친구 초대</span>
-                </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* List View */
+              <div className="mt-6">
+                {/* Header */}
+                <div className="flex items-center px-3 py-2 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                  <div className="w-14 flex-shrink-0" />
+                  <div className="flex-1">이름</div>
+                  <div className="w-12 text-center">매치</div>
+                  <div className="w-12 text-center">칭찬</div>
+                  <div className="w-12 text-center">POM</div>
+                </div>
+                <div className="space-y-1">
+                  {withProfile.map((friend) => {
+                    const country = COUNTRIES.find((c) => c.code === friend.country)!;
+                    return (
+                      <button
+                        key={friend.name}
+                        onClick={() => setSelectedFriend(friend)}
+                        className="flex items-center w-full rounded-xl bg-surface-hover px-3 py-2.5 transition-all active:scale-[0.98]"
+                      >
+                        <div className="flex items-center gap-2 w-14 flex-shrink-0">
+                          <TwemojiFlag emoji={country.flag} size={16} />
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex-shrink-0">
+                            {friend.imageUrl ? (
+                              <img src={friend.imageUrl} alt={friend.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xs font-bold text-on-surface-variant">{friend.name[0]}</div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-1 text-left text-sm font-bold text-surface-dark truncate">{friend.name}</div>
+                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.match ?? 0}</div>
+                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.praise ?? 0}</div>
+                        <div className="w-12 text-center text-sm font-russo text-surface-dark">{friend.stats?.pom ?? 0}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Friends without profile */}
             {withoutProfile.length > 0 && (
