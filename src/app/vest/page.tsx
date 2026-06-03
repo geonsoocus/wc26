@@ -125,7 +125,7 @@ const SCENARIO_DATA = {
   },
 };
 
-type Tab = "main" | "friends" | "collection";
+type Tab = "main" | "packs" | "friends" | "collection";
 
 export default function VestPage() {
   const [scenario, setScenario] = useState<Scenario>("active");
@@ -159,8 +159,10 @@ export default function VestPage() {
     }
   }, [openedPack]);
 
-  const TABS: { key: Tab; label: string }[] = [
-    { key: "main", label: "메인" },
+  const packCount = data.packs.length;
+  const TABS: { key: Tab; label: string; badge?: number }[] = [
+    { key: "main", label: "챌린지" },
+    { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
   ];
@@ -241,11 +243,18 @@ export default function VestPage() {
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 py-4 text-sm font-bold text-center transition-colors relative cursor-pointer ${
+                className={`flex-1 py-4 text-sm font-kbl text-center transition-colors relative cursor-pointer ${
                   activeTab === tab.key ? "text-surface-dark" : "text-on-surface-variant"
                 }`}
               >
-                {tab.label}
+                <span className="relative">
+                  {tab.label}
+                  {tab.badge && (
+                    <span className="absolute -top-1.5 -right-4 flex h-4 w-4 items-center justify-center rounded-full bg-accent-blue text-[9px] font-bold text-white font-sans">
+                      {tab.badge}
+                    </span>
+                  )}
+                </span>
                 {activeTab === tab.key && (
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full bg-surface-dark" />
                 )}
@@ -258,12 +267,10 @@ export default function VestPage() {
             <MainTab
               data={data}
               scenario={scenario}
-              openedPack={openedPack}
-              setOpenedPack={setOpenedPack}
-              packPhase={packPhase}
               onOpenProfilePicker={() => setProfilePickerOpen(true)}
             />
           )}
+          {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} />}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
           {activeTab === "collection" && <CollectionTab data={data} />}
         </div>
@@ -289,10 +296,10 @@ export default function VestPage() {
 
       {/* Debug Panel */}
       {debugOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
-          <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
+          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-surface-dark">시나리오 선택</h3>
+              <h3 className="text-base font-kbl text-surface-dark">시나리오 선택</h3>
               <button onClick={() => setDebugOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
             </div>
             <div className="space-y-2">
@@ -324,7 +331,7 @@ function WelcomeOverlay({ onDismiss }: { onDismiss: () => void }) {
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-[rgba(0,0,0,0.7)] backdrop-blur-sm">
       <div className="mx-6 w-full max-w-sm rounded-2xl bg-white p-8 text-center">
         <div className="text-4xl">🎉</div>
-        <h2 className="mt-3 text-xl font-extrabold text-surface-dark">PLAB WC26에 오신 걸 환영해요!</h2>
+        <h2 className="mt-3 text-xl font-kbl text-surface-dark">PLAB WC26에 오신 걸 환영해요!</h2>
         <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
           2026 월드컵을 플랩에서 즐겨보세요!<br />
           웰컴 팩을 드렸어요. 열어서 첫 조끼를 받아보세요
@@ -415,16 +422,10 @@ type ScenarioData = typeof SCENARIO_DATA[Scenario];
 function MainTab({
   data,
   scenario,
-  openedPack,
-  setOpenedPack,
-  packPhase,
   onOpenProfilePicker,
 }: {
   data: ScenarioData;
   scenario: Scenario;
-  openedPack: Pack | null;
-  setOpenedPack: (v: Pack | null) => void;
-  packPhase: "shake" | "reveal";
   onOpenProfilePicker: () => void;
 }) {
 
@@ -434,7 +435,7 @@ function MainTab({
       {!data.hasProfile && (
         <section className="bg-accent-green/10 px-5 py-8 border-b border-accent-green/20">
           <div className="text-center">
-            <h2 className="text-lg font-extrabold text-surface-dark">
+            <h2 className="text-lg font-kbl text-surface-dark">
               {scenario === "invited" ? "친구처럼 프로필을 만들어보세요!" : "먼저 프로필을 만들어보세요!"}
             </h2>
             <p className="mt-1 text-xs text-on-surface-variant">
@@ -453,24 +454,74 @@ function MainTab({
         </section>
       )}
 
-      {/* 나의 팩 */}
-      <section className="bg-white px-5 py-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-surface-dark">나의 팩</h2>
-            <p className="mt-1 text-xs text-on-surface-variant">팩을 오픈하고 조끼를 확인하세요</p>
-          </div>
-          <button className="flex items-center gap-1 text-xs font-bold text-surface-dark underline">팩 얻는 방법</button>
+      {/* Case 2: 매치 참여 마일스톤 */}
+      {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
+
+      {/* 우승국 예측 */}
+      <section className="bg-surface-hover px-5 py-10">
+        <h2 className="text-xl font-kbl text-surface-dark">우승국 예측</h2>
+        <p className="mt-1 text-sm font-medium text-black">획득한 조끼로 우승국을 예측해보세요!</p>
+        <div className="mt-6 flex gap-2">
+          {data.predictions.map((pred) => {
+            const country = pred.country ? COUNTRIES.find((c) => c.code === pred.country) : null;
+            return (
+              <div key={pred.slot} className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 ${pred.unlocked ? "bg-accent-green" : "bg-surface-gray pt-6"}`}>
+                {pred.unlocked && country && (
+                  <div className="flex items-center gap-1 px-2">
+                    <TwemojiFlag emoji={country.flag} size={16} />
+                    <span className="text-xs font-semibold text-surface-dark tracking-tight">{country.nameKo}</span>
+                  </div>
+                )}
+                <div className="flex h-[120px] items-center justify-center rounded-2xl bg-surface-dark px-4 py-5">
+                  {pred.unlocked && country ? <TwemojiFlag emoji={country.flag} size={48} /> : (
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-        <div className="mt-5 flex gap-4 overflow-x-auto pb-2">
+      </section>
+    </>
+  );
+}
+
+// ─── Packs Tab ───
+function PacksTab({
+  data,
+  openedPack,
+  setOpenedPack,
+  packPhase,
+}: {
+  data: ScenarioData;
+  openedPack: Pack | null;
+  setOpenedPack: (v: Pack | null) => void;
+  packPhase: "shake" | "reveal";
+}) {
+  return (
+    <section className="bg-white px-5 py-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-kbl text-surface-dark">나의 팩</h2>
+        <button className="flex items-center gap-1 text-xs font-bold text-surface-dark underline">팩 얻는 방법</button>
+      </div>
+      <p className="mt-1 text-xs text-on-surface-variant">팩을 오픈하고 조끼와 보상을 확인하세요</p>
+
+      {data.packs.length === 0 ? (
+        <div className="mt-8 text-center py-10">
+          <div className="text-4xl">📦</div>
+          <p className="mt-3 text-sm font-bold text-surface-dark">보유한 팩이 없어요</p>
+          <p className="mt-1 text-xs text-on-surface-variant">매치에 참여하면 팩을 받을 수 있어요</p>
+        </div>
+      ) : (
+        <div className="mt-6 grid grid-cols-4 gap-3">
           {data.packs.map((pack) => (
-            <button key={pack.id} onClick={() => setOpenedPack(pack)} className="flex-shrink-0 transition-transform active:scale-95">
-              <img src={pack.image} alt={pack.label} className="h-[97px] w-[62px]" draggable={false} />
+            <button key={pack.id} onClick={() => setOpenedPack(pack)} className="transition-transform active:scale-95">
+              <img src={pack.image} alt={pack.label} className="w-full h-auto" draggable={false} />
               <div className="mt-1 text-[10px] font-semibold text-on-surface-variant text-center">{pack.label}</div>
             </button>
           ))}
         </div>
-      </section>
+      )}
 
       {/* Pack Open Modal */}
       {openedPack && (() => {
@@ -493,7 +544,7 @@ function MainTab({
                   {isNations && rewardCountry ? (
                     <>
                       <div className="text-xs font-semibold text-accent-green uppercase tracking-wider">Nations Pack</div>
-                      <div className="text-lg font-extrabold text-surface-dark mt-1">새로운 조끼 획득!</div>
+                      <div className="text-lg font-kbl text-surface-dark mt-1">새로운 조끼 획득!</div>
                       <div className="mx-auto mt-6 animate-vest-pop">
                         <VestCard country={rewardCountry} owned={true} size="lg" />
                       </div>
@@ -504,7 +555,7 @@ function MainTab({
                   ) : (
                     <>
                       <div className="text-xs font-semibold text-accent-blue uppercase tracking-wider">Reward Pack</div>
-                      <div className="text-lg font-extrabold text-surface-dark mt-1">보상 획득!</div>
+                      <div className="text-lg font-kbl text-surface-dark mt-1">보상 획득!</div>
                       <div className="mx-auto mt-6 animate-vest-pop flex flex-col items-center">
                         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-blue/10">
                           {(reward as RewardPackReward).item.includes("토큰") ? (
@@ -535,36 +586,7 @@ function MainTab({
           </div>
         );
       })()}
-
-      {/* Case 2: 매치 참여 마일스톤 */}
-      {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
-
-      {/* 우승국 예측 */}
-      <section className="bg-surface-hover px-5 py-10">
-        <h2 className="text-xl font-extrabold text-surface-dark">우승국 예측</h2>
-        <p className="mt-1 text-sm font-medium text-black">획득한 조끼로 우승국을 예측해보세요!</p>
-        <div className="mt-6 flex gap-2">
-          {data.predictions.map((pred) => {
-            const country = pred.country ? COUNTRIES.find((c) => c.code === pred.country) : null;
-            return (
-              <div key={pred.slot} className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 ${pred.unlocked ? "bg-accent-green" : "bg-surface-gray pt-6"}`}>
-                {pred.unlocked && country && (
-                  <div className="flex items-center gap-1 px-2">
-                    <TwemojiFlag emoji={country.flag} size={16} />
-                    <span className="text-xs font-semibold text-surface-dark tracking-tight">{country.nameKo}</span>
-                  </div>
-                )}
-                <div className="flex h-[120px] items-center justify-center rounded-2xl bg-surface-dark px-4 py-5">
-                  {pred.unlocked && country ? <TwemojiFlag emoji={country.flag} size={48} /> : (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-    </>
+    </section>
   );
 }
 
@@ -601,14 +623,14 @@ function ProfilePickerModal({
   }, [genStep]);
 
   return (
-    <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
+    <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
 
         {genStep === "idle" && (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-surface-dark">내 프로필</h3>
+              <h3 className="text-base font-kbl text-surface-dark">내 프로필</h3>
               <div className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -667,7 +689,7 @@ function ProfilePickerModal({
 
         {genStep === "selectCountry" && (
           <>
-            <h3 className="text-base font-extrabold text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
+            <h3 className="text-base font-kbl text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
             <p className="text-xs text-on-surface-variant mb-3">AI가 해당 국가 스타일로 프로필을 만들어드려요</p>
             <div className="relative">
               <input type="text" placeholder="국가 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-surface-hover px-4 py-2.5 pl-9 text-sm text-surface-dark placeholder:text-on-surface-variant focus:border-accent-blue focus:outline-none" />
@@ -755,7 +777,7 @@ function MatchMission({ completed }: { completed: number }) {
 
   return (
     <section className="bg-white px-5 py-8 border-t border-gray-100">
-      <h2 className="text-xl font-extrabold text-surface-dark">매치데이 미션</h2>
+      <h2 className="text-xl font-kbl text-surface-dark">매치데이 미션</h2>
       <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
 
       <div className="mt-5 relative">
@@ -803,10 +825,10 @@ function MatchMission({ completed }: { completed: number }) {
 
       {/* Reward Detail Modal */}
       {selectedReward && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setRewardModal(null)}>
-          <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
-            <h3 className="text-base font-extrabold text-surface-dark">{selectedReward.label} 보상</h3>
+        <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setRewardModal(null)}>
+          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
+            <h3 className="text-base font-kbl text-surface-dark">{selectedReward.label} 보상</h3>
             <p className="mt-1 text-xs text-on-surface-variant">매치 완료 시 아래 보상을 받을 수 있어요</p>
 
             <div className="mt-5 space-y-3">
@@ -873,9 +895,9 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
     <section className="bg-white px-5 py-8">
       {/* Friend Detail Bottom Sheet */}
       {selectedFriend && selectedCountry && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setSelectedFriend(null)}>
-          <div className="w-full max-w-lg rounded-t-2xl bg-white px-5 pt-4 pb-10" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-gray-300" />
+        <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setSelectedFriend(null)}>
+          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white px-5 pt-4 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
             <div className="flex flex-col items-center">
               {/* Profile Card */}
               <div className="w-[65vw] max-w-[260px] overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100">
@@ -956,7 +978,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
         const withoutProfile = data.friends.filter(f => f.hasProfile === false);
         return (<>
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold text-surface-dark">친구들</h2>
+            <h2 className="text-xl font-kbl text-surface-dark">친구들</h2>
             {data.friends.length > 0 && (
               <div className="flex items-center rounded-lg bg-surface-hover p-0.5">
                 <button
@@ -1031,10 +1053,10 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                 <div className="flex items-center px-3 py-2 text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
                   <div className="w-14 flex-shrink-0" />
                   <div className="flex-1">이름</div>
-                  <div className="w-10 text-center">매너</div>
                   <div className="w-10 text-center">매치</div>
                   <div className="w-10 text-center">칭찬</div>
                   <div className="w-10 text-center">POM</div>
+                  <div className="w-10 text-center">매너</div>
                 </div>
                 <div className="space-y-1">
                   {[...withProfile].sort((a, b) => (b.stats?.manner ?? 0) - (a.stats?.manner ?? 0)).map((friend) => {
@@ -1057,10 +1079,10 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                           </div>
                         </div>
                         <div className="flex-1 text-left text-sm font-bold text-surface-dark truncate">{friend.name}</div>
-                        <div className={`w-10 text-center text-sm font-russo ${manner >= 4.5 ? "text-accent-green" : manner >= 4.0 ? "text-accent-blue" : "text-surface-dark"}`}>{manner.toFixed(1)}</div>
                         <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.match ?? 0}</div>
                         <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.praise ?? 0}</div>
                         <div className="w-10 text-center text-sm font-russo text-surface-dark">{friend.stats?.pom ?? 0}</div>
+                        <div className={`w-10 text-center text-sm font-russo ${manner >= 4.5 ? "text-accent-blue" : manner >= 4.0 ? "text-surface-dark" : "text-on-surface-variant"}`}>{manner.toFixed(1)}</div>
                       </button>
                     );
                   })}
@@ -1103,7 +1125,7 @@ function CollectionTab({ data }: { data: ScenarioData }) {
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
       <div className="flex items-center justify-between py-2">
-        <h2 className="text-xl font-extrabold text-surface-dark">컬렉션</h2>
+        <h2 className="text-xl font-kbl text-surface-dark">컬렉션</h2>
         <span className="text-2xl font-semibold tracking-tight text-surface-dark">{data.ownedVests.length}/48</span>
       </div>
       <div className="mt-5 grid grid-cols-4 gap-2">
@@ -1119,11 +1141,11 @@ function CollectionTab({ data }: { data: ScenarioData }) {
 function VestCard({ country, owned, size = "sm" }: { country: (typeof COUNTRIES)[0]; owned: boolean; size?: "sm" | "lg" }) {
   const isLg = size === "lg";
   return (
-    <div className={`flex flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 ${isLg ? "w-[120px] mx-auto" : "w-full min-w-0"} ${owned ? "bg-accent-green" : "bg-surface-gray"}`}>
+    <div className={`flex flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 ${isLg ? "w-[120px] mx-auto" : "w-full min-w-0"} ${owned ? "bg-accent-green/20 border border-accent-green/40" : "bg-gray-100"}`}>
       <div className="flex items-center px-2">
-        <span className={`text-[11px] font-semibold leading-relaxed tracking-tight ${owned ? "text-surface-dark" : "text-white"}`}>{country.nameKo}</span>
+        <span className={`text-[11px] font-semibold leading-relaxed tracking-tight ${owned ? "text-surface-dark" : "text-on-surface-variant"}`}>{country.nameKo}</span>
       </div>
-      <div className={`flex items-center justify-center rounded-2xl bg-surface-dark ${isLg ? "h-[140px] px-3 py-4" : "h-[110px] px-3 py-3"}`}>
+      <div className={`flex items-center justify-center rounded-2xl ${owned ? "bg-white" : "bg-gray-200"} ${isLg ? "h-[140px] px-3 py-4" : "h-[110px] px-3 py-3"}`}>
         {owned && country.bibImage ? (
           <img src={country.bibImage} alt={`${country.nameKo} 조끼`} className="h-full object-contain" draggable={false} />
         ) : owned ? (

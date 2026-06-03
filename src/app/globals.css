@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'KblJump';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-5@1.0/KBLJump_BTTF.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #22252a;
@@ -23,6 +30,7 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-russo: var(--font-russo);
+  --font-kbl: 'KblJump';
 }
 
 body {
