@@ -4,6 +4,39 @@ import { useState, useEffect } from "react";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
 
+// ─── Pack & Reward Types ───
+type PackType = "nations" | "reward";
+
+interface Pack {
+  id: number;
+  type: PackType;
+  label: string;
+  image: string;
+  // Mock reward for demo
+  mockReward: NationsReward | RewardPackReward;
+}
+
+interface NationsReward {
+  kind: "nations";
+  country: string; // country code
+}
+
+interface RewardPackReward {
+  kind: "reward";
+  item: string;
+}
+
+const REWARD_POOL = [
+  "대한민국 국가대표 유니폼",
+  "프로필 생성 토큰 1개",
+  "프로필 생성 토큰 2개",
+  "프로필 생성 토큰 3개",
+  "프로필 생성 토큰 5개",
+  "2,000원 할인 쿠폰",
+  "5,000원 할인 쿠폰",
+  "무료 참가 쿠폰",
+];
+
 // ─── Scenario Data ───
 type Scenario = "new" | "active" | "invited";
 
@@ -13,7 +46,8 @@ const SCENARIO_DATA = {
     desc: "이벤트를 처음 발견한 유저",
     ownedVests: [] as string[],
     packs: [
-      { id: 1, type: "welcome", label: "웰컴 팩", rarity: "rare" as const, image: "/img/match_pack.svg" },
+      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "KOR" } },
+      { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ],
     stats: { match: 0, level: 1, sentPraise: 0, receivedPraise: 0, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
@@ -33,9 +67,10 @@ const SCENARIO_DATA = {
     desc: "프로필 생성 완료, 매치 참여 중",
     ownedVests: ["KOR", "BRA", "FRA", "MEX", "GER"],
     packs: [
-      { id: 1, type: "daily", label: "출석 보상", rarity: "normal" as const, image: "/img/daily_pack.svg" },
-      { id: 2, type: "match", label: "매치 참여", rarity: "rare" as const, image: "/img/match_pack.svg" },
-      { id: 3, type: "pom", label: "POM 선정", rarity: "normal" as const, image: "/img/daily_pack.svg" },
+      { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "MEX" } },
+      { id: 2, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "JPN" } },
+      { id: 3, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "5,000원 할인 쿠폰" } },
+      { id: 4, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "무료 참가 쿠폰" } },
     ],
     stats: { match: 7, level: 7, sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
@@ -69,7 +104,8 @@ const SCENARIO_DATA = {
     desc: "친구의 공유 링크로 접근",
     ownedVests: [] as string[],
     packs: [
-      { id: 1, type: "welcome", label: "웰컴 팩", rarity: "rare" as const, image: "/img/match_pack.svg" },
+      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "BRA" } },
+      { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ],
     stats: { match: 2, level: 3, sentPraise: 5, receivedPraise: 8, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
@@ -92,7 +128,7 @@ export default function VestPage() {
   const [scenario, setScenario] = useState<Scenario>("active");
   const [debugOpen, setDebugOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("main");
-  const [openedPack, setOpenedPack] = useState<string | null>(null);
+  const [openedPack, setOpenedPack] = useState<Pack | null>(null);
   const [packPhase, setPackPhase] = useState<"shake" | "reveal">("shake");
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [inviteDismissed, setInviteDismissed] = useState(false);
@@ -220,6 +256,7 @@ export default function VestPage() {
               openedPack={openedPack}
               setOpenedPack={setOpenedPack}
               packPhase={packPhase}
+              onOpenProfilePicker={() => setProfilePickerOpen(true)}
             />
           )}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
@@ -228,44 +265,12 @@ export default function VestPage() {
       </div>
 
       {/* Profile Picker Modal */}
-      {profilePickerOpen && data.profiles.length > 0 && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50" onClick={() => setProfilePickerOpen(false)}>
-          <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-extrabold text-surface-dark">프로필 선택</h3>
-              <button onClick={() => setProfilePickerOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {data.profiles.map((profile) => {
-                const country = COUNTRIES.find((c) => c.code === profile.country)!;
-                const isSelected = profile.id === activeProfileId;
-                return (
-                  <button
-                    key={profile.id}
-                    onClick={() => { setActiveProfileId(profile.id); setProfilePickerOpen(false); }}
-                    className="flex flex-col items-center gap-1"
-                  >
-                    <div className={`relative w-full aspect-[4/5] rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 transition-all ${
-                      isSelected ? "border-accent-green shadow-md" : "border-transparent"
-                    }`}>
-                      <img src={profile.imageUrl} alt={country.nameKo} className="w-full h-full object-cover" draggable={false} />
-                      <div className="absolute top-1.5 left-1.5">
-                        <TwemojiFlag emoji={country.flag} size={16} />
-                      </div>
-                      {isSelected && (
-                        <div className="absolute bottom-0 inset-x-0 bg-accent-green py-0.5 text-center">
-                          <span className="text-[8px] font-bold text-surface-dark">적용중</span>
-                        </div>
-                      )}
-                    </div>
-                    <span className="text-[10px] font-medium text-on-surface-variant">{country.nameKo}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
+      {profilePickerOpen && <ProfilePickerModal
+        data={data}
+        activeProfileId={activeProfileId}
+        onSelect={(id) => { setActiveProfileId(id); setProfilePickerOpen(false); }}
+        onClose={() => setProfilePickerOpen(false)}
+      />}
 
       {/* Debug FAB */}
       <button
@@ -279,7 +284,7 @@ export default function VestPage() {
 
       {/* Debug Panel */}
       {debugOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/50" onClick={() => setDebugOpen(false)}>
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
           <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base font-extrabold text-surface-dark">시나리오 선택</h3>
@@ -311,7 +316,7 @@ export default function VestPage() {
 // ─── Welcome Overlay (Case 1) ───
 function WelcomeOverlay({ onDismiss }: { onDismiss: () => void }) {
   return (
-    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-[rgba(0,0,0,0.7)] backdrop-blur-sm">
       <div className="mx-6 w-full max-w-sm rounded-2xl bg-white p-8 text-center">
         <div className="text-4xl">🎉</div>
         <h2 className="mt-3 text-xl font-extrabold text-surface-dark">PLAB WC26에 오신 걸 환영해요!</h2>
@@ -401,7 +406,6 @@ function InviteBanner({
 
 // ─── Main Tab ───
 type ScenarioData = typeof SCENARIO_DATA[Scenario];
-type ProfileGenStep = "idle" | "selectCountry" | "uploadPhoto" | "generating" | "done";
 
 function MainTab({
   data,
@@ -409,26 +413,15 @@ function MainTab({
   openedPack,
   setOpenedPack,
   packPhase,
+  onOpenProfilePicker,
 }: {
   data: ScenarioData;
   scenario: Scenario;
-  openedPack: string | null;
-  setOpenedPack: (v: string | null) => void;
+  openedPack: Pack | null;
+  setOpenedPack: (v: Pack | null) => void;
   packPhase: "shake" | "reveal";
+  onOpenProfilePicker: () => void;
 }) {
-  const [genStep, setGenStep] = useState<ProfileGenStep>("idle");
-  const [genCountry, setGenCountry] = useState<string | null>(null);
-  const [activeProfileId, setActiveProfileId] = useState(data.profiles[0]?.id ?? 0);
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const genCountryData = genCountry ? COUNTRIES.find((c) => c.code === genCountry) : null;
-
-  useEffect(() => {
-    if (genStep === "generating") {
-      const timer = setTimeout(() => setGenStep("done"), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [genStep]);
 
   return (
     <>
@@ -443,7 +436,7 @@ function MainTab({
               AI가 월드컵 국가대표 스타일의 프로필 이미지를 만들어드려요
             </p>
             <button
-              onClick={() => setGenStep("selectCountry")}
+              onClick={onOpenProfilePicker}
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -466,7 +459,7 @@ function MainTab({
         </div>
         <div className="mt-5 flex gap-4 overflow-x-auto pb-2">
           {data.packs.map((pack) => (
-            <button key={pack.id} onClick={() => setOpenedPack(pack.label)} className="flex-shrink-0 transition-transform active:scale-95">
+            <button key={pack.id} onClick={() => setOpenedPack(pack)} className="flex-shrink-0 transition-transform active:scale-95">
               <img src={pack.image} alt={pack.label} className="h-[97px] w-[62px]" draggable={false} />
               <div className="mt-1 text-[10px] font-semibold text-on-surface-variant text-center">{pack.label}</div>
             </button>
@@ -475,190 +468,71 @@ function MainTab({
       </section>
 
       {/* Pack Open Modal */}
-      {openedPack && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => { if (packPhase === "reveal") setOpenedPack(null); }}>
-          <div className="mx-6 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
-            {packPhase === "shake" ? (
-              <div className="flex flex-col items-center gap-4">
-                <img src="/img/match_pack.svg" alt="Pack" className="h-[194px] w-[124px] animate-pack-shake" />
-                <p className="text-sm font-semibold text-white animate-pulse">팩을 오픈하는 중...</p>
-              </div>
-            ) : (
-              <div className="animate-pack-reveal rounded-2xl bg-white p-8">
-                <div className="text-lg font-extrabold text-surface-dark">새로운 조끼 획득!</div>
-                <div className="mx-auto mt-6 animate-vest-pop">
-                  <VestCard country={COUNTRIES.find((c) => c.code === "MEX")!} owned={true} size="lg" />
+      {openedPack && (() => {
+        const reward = openedPack.mockReward;
+        const isNations = reward.kind === "nations";
+        const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.7)] backdrop-blur-sm" onClick={() => { if (packPhase === "reveal") setOpenedPack(null); }}>
+            <div className="mx-6 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
+              {packPhase === "shake" ? (
+                <div className="flex flex-col items-center gap-4">
+                  <img src={openedPack.image} alt="Pack" className="h-[194px] w-[124px] animate-pack-shake" />
+                  <p className="text-sm font-semibold text-white animate-pulse">
+                    {isNations ? "네이션스팩" : "리워드팩"} 오픈 중...
+                  </p>
                 </div>
-                <p className="mt-4 text-sm text-on-surface-variant">멕시코 스타일 플랩 조끼를 획득했습니다</p>
-                <button onClick={() => setOpenedPack(null)} className="mt-6 w-full rounded-xl bg-accent-green px-4 py-3 text-sm font-bold text-surface-dark">확인</button>
-              </div>
-            )}
+              ) : (
+                <div className="animate-pack-reveal rounded-2xl bg-white p-8">
+                  {isNations && rewardCountry ? (
+                    <>
+                      <div className="text-xs font-semibold text-accent-green uppercase tracking-wider">Nations Pack</div>
+                      <div className="text-lg font-extrabold text-surface-dark mt-1">새로운 조끼 획득!</div>
+                      <div className="mx-auto mt-6 animate-vest-pop">
+                        <VestCard country={rewardCountry} owned={true} size="lg" />
+                      </div>
+                      <p className="mt-4 text-sm text-on-surface-variant">
+                        {rewardCountry.flag} {rewardCountry.nameKo} 스타일 플랩 조끼를 획득했습니다
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-xs font-semibold text-accent-blue uppercase tracking-wider">Reward Pack</div>
+                      <div className="text-lg font-extrabold text-surface-dark mt-1">보상 획득!</div>
+                      <div className="mx-auto mt-6 animate-vest-pop flex flex-col items-center">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-blue/10">
+                          {(reward as RewardPackReward).item.includes("토큰") ? (
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                            </svg>
+                          ) : (reward as RewardPackReward).item.includes("쿠폰") ? (
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="2" y="5" width="20" height="14" rx="2" />
+                              <line x1="2" y1="10" x2="22" y2="10" />
+                            </svg>
+                          ) : (
+                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+                            </svg>
+                          )}
+                        </div>
+                        <p className="mt-4 text-base font-bold text-surface-dark">
+                          {(reward as RewardPackReward).item}
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  <button onClick={() => setOpenedPack(null)} className="mt-6 w-full rounded-xl bg-accent-green px-4 py-3 text-sm font-bold text-surface-dark">확인</button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Case 2: 매치 참여 마일스톤 */}
-      {scenario === "active" && (
-        <section className="bg-white px-5 py-8 border-t border-gray-100">
-          <h2 className="text-xl font-extrabold text-surface-dark">3회 매치 미션</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
-
-          <div className="mt-5 relative">
-            {/* Progress line */}
-            <div className="absolute top-6 left-6 right-6 h-1 bg-gray-200 rounded-full">
-              <div
-                className="h-full rounded-full bg-accent-green transition-all duration-500"
-                style={{ width: `${(data.matchMission.completed / data.matchMission.total) * 100}%` }}
-              />
-            </div>
-
-            {/* Milestones */}
-            <div className="relative flex justify-between">
-              {[
-                { match: 1, reward: "노멀 팩 x1", icon: "/img/daily_pack.svg" },
-                { match: 2, reward: "레어 팩 x1", icon: "/img/match_pack.svg" },
-                { match: 3, reward: "스페셜 골드 팩", icon: "/img/match_pack.svg" },
-              ].map((ms, i) => {
-                const done = data.matchMission.completed >= ms.match;
-                const isCurrent = data.matchMission.completed === ms.match - 1;
-                return (
-                  <div key={i} className="flex flex-col items-center w-24">
-                    <div className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all ${
-                      done ? "border-accent-green bg-accent-green" : isCurrent ? "border-accent-blue bg-white" : "border-gray-200 bg-white"
-                    }`}>
-                      {done ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                      ) : (
-                        <span className={`text-sm font-bold ${isCurrent ? "text-accent-blue" : "text-gray-300"}`}>{ms.match}</span>
-                      )}
-                    </div>
-                    <div className="mt-2 text-center">
-                      <div className={`text-[10px] font-bold ${done ? "text-surface-dark" : "text-on-surface-variant"}`}>{ms.match}회차</div>
-                      <div className="text-[9px] text-on-surface-variant mt-0.5">{ms.reward}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <button className="mt-6 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
-            매치 참여하러 가기
-          </button>
-        </section>
-      )}
-
-      {/* 프로필 이미지 만들기 (Case 2에서만 기존 UI) */}
-      {data.hasProfile && (
-        <section className="bg-white px-5 py-10 border-t border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-extrabold text-surface-dark">프로필 만들기</h2>
-              <p className="mt-1 text-xs text-on-surface-variant">AI가 축구선수 스타일의 프로필 이미지를 만들어드려요</p>
-            </div>
-            <div className="flex items-center gap-1 rounded-full bg-surface-hover px-3 py-1.5">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-              <span className="text-xs font-bold text-accent-blue">{data.profileQuota.total - data.profileQuota.used}</span>
-              <span className="text-[10px] text-on-surface-variant">/ {data.profileQuota.total}회</span>
-            </div>
-          </div>
-          {data.profiles.length > 0 && (
-            <div className="mt-5">
-              <p className="text-xs font-semibold text-on-surface-variant mb-2">내 프로필</p>
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {data.profiles.map((profile) => {
-                  const country = COUNTRIES.find((c) => c.code === profile.country)!;
-                  const isSelected = profile.id === activeProfileId;
-                  return (
-                    <button key={profile.id} onClick={() => setActiveProfileId(profile.id)} className="flex-shrink-0">
-                      <div className={`relative w-20 h-24 rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 transition-all ${isSelected ? "border-accent-green shadow-md" : "border-transparent"}`}>
-                        <img src={profile.imageUrl} alt={country.nameKo} className="w-full h-full object-cover" draggable={false} />
-                        <div className="absolute top-1 left-1"><TwemojiFlag emoji={country.flag} size={14} /></div>
-                        {isSelected && <div className="absolute bottom-0 inset-x-0 bg-accent-green py-0.5 text-center"><span className="text-[8px] font-bold text-surface-dark">적용중</span></div>}
-                      </div>
-                      <div className="mt-1 text-[10px] font-medium text-center text-on-surface-variant">{country.nameKo}</div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          {genStep === "idle" && (
-            <button onClick={() => setGenStep("selectCountry")} disabled={data.profileQuota.used >= data.profileQuota.total} className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-accent-blue py-3.5 text-sm font-bold text-white disabled:opacity-40">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-              새 프로필 만들기
-            </button>
-          )}
-        </section>
-      )}
-
-      {/* Profile generation flow (all scenarios) */}
-      {genStep === "selectCountry" && (
-        <section className="bg-surface-hover px-5 py-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-sm font-bold text-surface-dark">어느 나라 선수가 되어볼까요?</p>
-            <div className="relative mt-3">
-              <input type="text" placeholder="국가 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-surface-hover px-4 py-2.5 pl-9 text-sm text-surface-dark placeholder:text-on-surface-variant focus:border-accent-blue focus:outline-none" />
-              <svg className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
-              {(searchQuery ? COUNTRIES.filter((c) => c.nameKo.includes(searchQuery) || c.name.toLowerCase().includes(searchQuery.toLowerCase())) : COUNTRIES.slice(0, 12)).map((country) => (
-                <button key={country.code} onClick={() => { setGenCountry(country.code); setGenStep("uploadPhoto"); setSearchQuery(""); }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-surface-hover px-2.5 py-2 text-left hover:border-accent-blue">
-                  <TwemojiFlag emoji={country.flag} size={18} />
-                  <span className="text-xs font-medium text-surface-dark truncate">{country.nameKo}</span>
-                </button>
-              ))}
-            </div>
-            <button onClick={() => { setGenStep("idle"); setSearchQuery(""); }} className="mt-3 w-full text-xs text-on-surface-variant">취소</button>
-          </div>
-        </section>
-      )}
-
-      {genStep === "uploadPhoto" && genCountryData && (
-        <section className="bg-surface-hover px-5 py-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center">
-            <TwemojiFlag emoji={genCountryData.flag} size={36} />
-            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 선수 프로필</p>
-            <p className="mt-1 text-xs text-on-surface-variant">사진을 업로드하면 AI가 변환해드려요</p>
-            <div className="mx-auto mt-4 flex h-36 w-36 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-surface-hover">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-              <span className="text-[10px] text-on-surface-variant">사진 업로드</span>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button onClick={() => setGenStep("selectCountry")} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">뒤로</button>
-              <button onClick={() => setGenStep("generating")} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">생성하기</button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {genStep === "generating" && genCountryData && (
-        <section className="bg-surface-hover px-5 py-6">
-          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center">
-            <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-gray-200 border-t-accent-blue" />
-            <p className="mt-4 text-sm font-bold text-surface-dark">프로필 생성 중...</p>
-            <p className="mt-1 text-xs text-on-surface-variant">AI가 {genCountryData.nameKo} 국가대표 스타일로 만들고 있어요</p>
-          </div>
-        </section>
-      )}
-
-      {genStep === "done" && genCountryData && (
-        <section className="bg-surface-hover px-5 py-6">
-          <div className="rounded-2xl border border-accent-green bg-accent-green/5 p-5 text-center">
-            <p className="text-xs font-bold text-accent-blue">생성 완료!</p>
-            <div className="mx-auto mt-3 w-32 h-40 rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 border-accent-green">
-              <img src="/img/profile.png" alt="Generated" className="w-full h-full object-cover" />
-            </div>
-            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 프로필</p>
-            <div className="mt-4 flex gap-2">
-              <button onClick={() => { setGenStep("idle"); setGenCountry(null); }} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">프로필에 적용</button>
-              <button onClick={() => { setGenStep("idle"); setGenCountry(null); }} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">닫기</button>
-            </div>
-          </div>
-        </section>
-      )}
+      {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
 
       {/* 우승국 예측 */}
       <section className="bg-surface-hover px-5 py-10">
@@ -689,6 +563,290 @@ function MainTab({
   );
 }
 
+// ─── Profile Picker Modal ───
+type ProfileGenStep = "idle" | "selectCountry" | "uploadPhoto" | "generating" | "done";
+
+function ProfilePickerModal({
+  data,
+  activeProfileId,
+  onSelect,
+  onClose,
+}: {
+  data: ScenarioData;
+  activeProfileId: number;
+  onSelect: (id: number) => void;
+  onClose: () => void;
+}) {
+  const [genStep, setGenStep] = useState<ProfileGenStep>("idle");
+  const [genCountry, setGenCountry] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const genCountryData = genCountry ? COUNTRIES.find((c) => c.code === genCountry) : null;
+  const remaining = data.profileQuota.total - data.profileQuota.used;
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  useEffect(() => {
+    if (genStep === "generating") {
+      const timer = setTimeout(() => setGenStep("done"), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [genStep]);
+
+  return (
+    <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
+
+        {genStep === "idle" && (
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-surface-dark">내 프로필</h3>
+              <div className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                <span className="text-[10px] font-bold text-accent-blue">{remaining}회 남음</span>
+              </div>
+            </div>
+
+            {data.profiles.length > 0 && (
+              <div className="grid grid-cols-4 gap-3">
+                {data.profiles.map((profile) => {
+                  const country = COUNTRIES.find((c) => c.code === profile.country)!;
+                  const isSelected = profile.id === activeProfileId;
+                  return (
+                    <button
+                      key={profile.id}
+                      onClick={() => onSelect(profile.id)}
+                      className="flex flex-col items-center gap-1"
+                    >
+                      <div className={`relative w-full rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 transition-all ${
+                        isSelected ? "border-accent-green shadow-md" : "border-transparent"
+                      }`} style={{ paddingBottom: "125%" }}>
+                        <img src={profile.imageUrl} alt={country.nameKo} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                        <div className="absolute top-1.5 left-1.5">
+                          <TwemojiFlag emoji={country.flag} size={16} />
+                        </div>
+                        {isSelected && (
+                          <div className="absolute bottom-0 inset-x-0 bg-accent-green py-0.5 text-center">
+                            <span className="text-[8px] font-bold text-surface-dark">적용중</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-medium text-on-surface-variant">{country.nameKo}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {data.profiles.length === 0 && (
+              <div className="text-center py-6">
+                <p className="text-sm text-on-surface-variant">아직 프로필이 없어요</p>
+              </div>
+            )}
+
+            <button
+              onClick={() => setGenStep("selectCountry")}
+              disabled={remaining <= 0}
+              className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-accent-blue py-3 text-sm font-bold text-white disabled:opacity-40"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+              새 프로필 만들기
+            </button>
+          </>
+        )}
+
+        {genStep === "selectCountry" && (
+          <>
+            <h3 className="text-base font-extrabold text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
+            <p className="text-xs text-on-surface-variant mb-3">AI가 해당 국가 스타일로 프로필을 만들어드려요</p>
+            <div className="relative">
+              <input type="text" placeholder="국가 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-surface-hover px-4 py-2.5 pl-9 text-sm text-surface-dark placeholder:text-on-surface-variant focus:border-accent-blue focus:outline-none" />
+              <svg className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2 max-h-[240px] overflow-y-auto">
+              {(searchQuery ? COUNTRIES.filter((c) => c.nameKo.includes(searchQuery) || c.name.toLowerCase().includes(searchQuery.toLowerCase())) : COUNTRIES.slice(0, 12)).map((country) => (
+                <button key={country.code} onClick={() => { setGenCountry(country.code); setGenStep("uploadPhoto"); setSearchQuery(""); }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left hover:border-accent-blue">
+                  <TwemojiFlag emoji={country.flag} size={18} />
+                  <span className="text-xs font-medium text-surface-dark truncate">{country.nameKo}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setGenStep("idle")} className="mt-3 w-full text-xs text-on-surface-variant">뒤로</button>
+          </>
+        )}
+
+        {genStep === "uploadPhoto" && genCountryData && (
+          <div className="text-center">
+            <TwemojiFlag emoji={genCountryData.flag} size={36} />
+            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 선수 프로필</p>
+            <p className="mt-1 text-xs text-on-surface-variant">사진을 업로드하면 AI가 변환해드려요</p>
+            <div className="mx-auto mt-4 flex h-36 w-36 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-surface-hover">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+              <span className="text-[10px] text-on-surface-variant">사진 업로드</span>
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setGenStep("selectCountry")} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">뒤로</button>
+              <button onClick={() => setGenStep("generating")} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">생성하기</button>
+            </div>
+          </div>
+        )}
+
+        {genStep === "generating" && genCountryData && (
+          <div className="text-center py-6">
+            <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-gray-200 border-t-accent-blue" />
+            <p className="mt-4 text-sm font-bold text-surface-dark">프로필 생성 중...</p>
+            <p className="mt-1 text-xs text-on-surface-variant">AI가 {genCountryData.nameKo} 국가대표 스타일로 만들고 있어요</p>
+          </div>
+        )}
+
+        {genStep === "done" && genCountryData && (
+          <div className="text-center">
+            <p className="text-xs font-bold text-accent-blue">생성 완료!</p>
+            <div className="mx-auto mt-3 w-32 h-40 rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 border-accent-green">
+              <img src="/img/profile.png" alt="Generated" className="w-full h-full object-cover" />
+            </div>
+            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 프로필</p>
+            <div className="mt-4 flex gap-2">
+              <button onClick={onClose} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">프로필에 적용</button>
+              <button onClick={() => { setGenStep("idle"); setGenCountry(null); }} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">다른 프로필 보기</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Match Mission ───
+const MISSION_REWARDS = [
+  {
+    match: 1,
+    label: "MATCHDAY 1",
+    nations: { count: 1, desc: "랜덤 국가 조끼 1개" },
+    rewards: { count: 1, items: ["대한민국 국가대표 유니폼", "프로필 생성 토큰 1개", "2,000원 할인 쿠폰"] },
+  },
+  {
+    match: 2,
+    label: "MATCHDAY 2",
+    nations: { count: 3, desc: "랜덤 국가 조끼 3개" },
+    rewards: { count: 2, items: ["프로필 생성 토큰 2개", "5,000원 할인 쿠폰", "무료 참가 쿠폰"] },
+  },
+  {
+    match: 3,
+    label: "MATCHDAY 3",
+    nations: { count: 5, desc: "랜덤 국가 조끼 5개" },
+    rewards: { count: 3, items: ["프로필 생성 토큰 3개", "프로필 생성 토큰 5개", "무료 참가 쿠폰"] },
+  },
+];
+
+function MatchMission({ completed }: { completed: number }) {
+  const [rewardModal, setRewardModal] = useState<number | null>(null);
+  const selectedReward = rewardModal !== null ? MISSION_REWARDS.find(r => r.match === rewardModal) : null;
+
+  return (
+    <section className="bg-white px-5 py-8 border-t border-gray-100">
+      <h2 className="text-xl font-extrabold text-surface-dark">매치데이 미션</h2>
+      <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
+
+      <div className="mt-5 relative">
+        {/* Progress line */}
+        <div className="absolute top-6 left-6 right-6 h-1 bg-gray-200 rounded-full">
+          <div
+            className="h-full rounded-full bg-accent-green transition-all duration-500"
+            style={{ width: `${(completed / 3) * 100}%` }}
+          />
+        </div>
+
+        {/* Milestones */}
+        <div className="relative flex justify-between">
+          {MISSION_REWARDS.map((ms) => {
+            const done = completed >= ms.match;
+            const isCurrent = completed === ms.match - 1;
+            return (
+              <button
+                key={ms.match}
+                onClick={() => setRewardModal(ms.match)}
+                className="flex flex-col items-center w-24"
+              >
+                <div className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all ${
+                  done ? "border-accent-green bg-accent-green" : isCurrent ? "border-accent-blue bg-white" : "border-gray-200 bg-white"
+                }`}>
+                  {done ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  ) : (
+                    <span className={`text-sm font-bold ${isCurrent ? "text-accent-blue" : "text-gray-300"}`}>{ms.match}</span>
+                  )}
+                </div>
+                <div className="mt-2 text-center">
+                  <div className={`text-[10px] font-bold ${done ? "text-surface-dark" : "text-on-surface-variant"}`}>{ms.label}</div>
+                  <div className="text-[9px] text-accent-blue font-semibold mt-0.5">리워드 보기</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <button className="mt-6 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
+        매치 참여하러 가기
+      </button>
+
+      {/* Reward Detail Modal */}
+      {selectedReward && (
+        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setRewardModal(null)}>
+          <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300" />
+            <h3 className="text-base font-extrabold text-surface-dark">{selectedReward.label} 보상</h3>
+            <p className="mt-1 text-xs text-on-surface-variant">매치 완료 시 아래 보상을 받을 수 있어요</p>
+
+            <div className="mt-5 space-y-3">
+              {/* Nations Pack */}
+              <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-surface-hover p-4">
+                <img src="/img/daily_pack.svg" alt="Nations Pack" className="h-14 w-9 flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-bold text-surface-dark">네이션스팩 x{selectedReward.nations.count}</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">{selectedReward.nations.desc}</div>
+                </div>
+              </div>
+
+              {/* Reward Pack */}
+              <div className="rounded-xl border border-gray-100 bg-surface-hover p-4">
+                <div className="flex items-center gap-3">
+                  <img src="/img/match_pack.svg" alt="Reward Pack" className="h-14 w-9 flex-shrink-0" />
+                  <div>
+                    <div className="text-sm font-bold text-surface-dark">리워드팩 x{selectedReward.rewards.count}</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">아래 보상 중 {selectedReward.rewards.count}개 획득</div>
+                  </div>
+                </div>
+                <div className="mt-3 space-y-1.5">
+                  {selectedReward.rewards.items.map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
+                      <span className="text-xs text-surface-dark">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setRewardModal(null)}
+              className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Friends Tab ───
 function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario }) {
   const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } } | null>(null);
@@ -707,7 +865,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
     <section className="bg-white px-5 py-8">
       {/* Friend Detail Bottom Sheet */}
       {selectedFriend && selectedCountry && (
-        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/40" onClick={() => setSelectedFriend(null)}>
+        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setSelectedFriend(null)}>
           <div className="w-full max-w-lg rounded-t-2xl bg-white px-5 pt-4 pb-10" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-gray-300" />
             <div className="flex flex-col items-center">
@@ -800,7 +958,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
           {data.friends.map((friend) => {
             const country = COUNTRIES.find((c) => c.code === friend.country)!;
             return (
-              <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100 text-left transition-transform active:scale-95">
+              <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
                 <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
                   <div className="absolute inset-0 flex items-center justify-center">
                     {friend.imageUrl ? (
@@ -821,10 +979,6 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                     </div>
                   </div>
                 </div>
-                <div className="bg-white px-3 py-2">
-                  <div className="text-xs font-bold text-surface-dark truncate">{friend.name}</div>
-                  <div className="text-[10px] text-on-surface-variant">{country.nameKo}</div>
-                </div>
               </button>
             );
           })}
@@ -843,10 +997,10 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
 // ─── Collection Tab ───
 function CollectionTab({ data }: { data: ScenarioData }) {
   return (
-    <section className="bg-surface-dark px-5 py-8 overflow-hidden">
+    <section className="bg-white px-5 py-8 overflow-hidden">
       <div className="flex items-center justify-between py-2">
-        <h2 className="text-xl font-extrabold text-white">컬렉션</h2>
-        <span className="text-2xl font-semibold tracking-tight text-white">{data.ownedVests.length}/48</span>
+        <h2 className="text-xl font-extrabold text-surface-dark">컬렉션</h2>
+        <span className="text-2xl font-semibold tracking-tight text-surface-dark">{data.ownedVests.length}/48</span>
       </div>
       <div className="mt-5 grid grid-cols-4 gap-2">
         {COUNTRIES.map((country) => (
