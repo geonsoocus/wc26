@@ -36,14 +36,6 @@ button {
   touch-action: manipulation;
 }
 
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-thumb {
-  background: #393d46;
-  border-radius: 2px;
-}
 
 @keyframes packGlow {
   0%, 100% { box-shadow: 0 0 15px rgba(150, 255, 98, 0.2); }

@@ -23,7 +23,7 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
@@ -39,21 +39,26 @@ const SCENARIO_DATA = {
     ],
     stats: { match: 7, level: 7, sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
-      { id: 1, country: "BRA", imageUrl: "/img/profile.png", isActive: true },
-      { id: 2, country: "KOR", imageUrl: "/img/profile.png", isActive: false },
+      { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: true },
+      { id: 2, country: "JPN", imageUrl: "/img/profile_me_japan.png", isActive: false },
+      { id: 3, country: "NED", imageUrl: "/img/profile_me_netherland.png", isActive: false },
+      { id: 4, country: "USA", imageUrl: "/img/profile_me_usa.png", isActive: false },
     ],
-    profileQuota: { used: 2, total: 5 },
+    profileQuota: { used: 4, total: 5 },
     predictions: [
       { slot: 1, country: "CUW", unlocked: true },
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
     friends: [
-      { name: "김플랩", country: "BRA", imageUrl: "/img/profile.png" },
-      { name: "박소셜", country: "FRA", imageUrl: null },
-      { name: "이매치", country: "ARG", imageUrl: "/img/profile.png" },
-      { name: "최골든", country: "ESP", imageUrl: null },
-      { name: "정킥커", country: "GER", imageUrl: "/img/profile.png" },
+      { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", stats: { match: 12, level: 8, praise: 45, pom: 3 } },
+      { name: "히어로", country: "FRA", imageUrl: "/img/profile_hero.png", stats: { match: 8, level: 6, praise: 32, pom: 1 } },
+      { name: "호두", country: "ARG", imageUrl: "/img/profile_hodoo.png", stats: { match: 15, level: 9, praise: 58, pom: 5 } },
+      { name: "라임", country: "ESP", imageUrl: "/img/profile_lime.png", stats: { match: 5, level: 4, praise: 18, pom: 0 } },
+      { name: "막국", country: "GER", imageUrl: "/img/profile_macgook.png", stats: { match: 10, level: 7, praise: 41, pom: 2 } },
+      { name: "큐", country: "KOR", imageUrl: "/img/profile_q.png", stats: { match: 20, level: 10, praise: 72, pom: 7 } },
+      { name: "제리", country: "JPN", imageUrl: "/img/profile_zerry.png", stats: { match: 3, level: 3, praise: 12, pom: 0 } },
+      { name: "정남", country: "NED", imageUrl: "/img/profile_jeongnam.png", stats: { match: 9, level: 6, praise: 35, pom: 2 } },
     ],
     hasProfile: true,
     matchMission: { completed: 1, total: 3 },
@@ -74,10 +79,10 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
-    inviter: { name: "김플랩", country: "BRA", imageUrl: "/img/profile.png" },
+    inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
   },
 };
 
@@ -91,8 +96,11 @@ export default function VestPage() {
   const [packPhase, setPackPhase] = useState<"shake" | "reveal">("shake");
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [inviteDismissed, setInviteDismissed] = useState(false);
+  const [profilePickerOpen, setProfilePickerOpen] = useState(false);
 
   const data = SCENARIO_DATA[scenario];
+
+  const [activeProfileId, setActiveProfileId] = useState(data.profiles.find(p => p.isActive)?.id ?? 0);
 
   // Reset state on scenario change
   useEffect(() => {
@@ -100,6 +108,8 @@ export default function VestPage() {
     setOpenedPack(null);
     setWelcomeDismissed(false);
     setInviteDismissed(false);
+    setProfilePickerOpen(false);
+    setActiveProfileId(SCENARIO_DATA[scenario].profiles.find(p => p.isActive)?.id ?? 0);
   }, [scenario]);
 
   useEffect(() => {
@@ -117,7 +127,7 @@ export default function VestPage() {
   ];
 
   return (
-    <div className="flex flex-col pb-0">
+    <div className="max-w-[1024px] mx-auto pb-0">
       {/* Invite Banner (Case 3) */}
       {scenario === "invited" && !inviteDismissed && (
         <InviteBanner inviter={data.inviter!} onDismiss={() => setInviteDismissed(true)} />
@@ -128,80 +138,134 @@ export default function VestPage() {
         <WelcomeOverlay onDismiss={() => setWelcomeDismissed(true)} />
       )}
 
-      {/* Hero */}
-      <section className="relative overflow-hidden rounded-bl-[40px]" style={{ background: "#5fc0e1" }}>
-        <div className="relative z-10 flex items-center pt-6 pb-0">
-          <div className="flex flex-col items-center">
-            <div className="flex items-center justify-center w-16 h-16 bg-surface-dark">
-              <TwemojiFlag emoji="🇯🇵" size={40} />
-            </div>
-            <div className="flex items-center justify-center w-16 bg-white p-2">
-              <img src="/img/symbol.svg" alt="WC26" className="w-12 h-auto" />
-            </div>
-          </div>
-          <div className="flex-1 flex justify-end -mr-5">
-            {data.hasProfile ? (
-              <img src="/img/profile.png" alt="Player" className="w-[260px] h-[260px] object-contain" />
-            ) : (
-              <div className="w-[260px] h-[260px] flex items-center justify-center">
-                <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.6}>
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
+      {/* 2-column layout on lg, single column on mobile */}
+      <div className="flex flex-col lg:flex-row lg:items-start">
+        {/* Left: Profile Card (sticky on desktop) */}
+        <div className="lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:self-start">
+          <section className="relative overflow-hidden rounded-bl-[40px] lg:rounded-bl-none lg:rounded-br-[40px]" style={{ background: "#5fc0e1" }}>
+            <div className="relative z-10 flex items-center pt-6 pb-0">
+              <div className="flex flex-col items-center">
+                <button
+                  onClick={() => data.hasProfile && setProfilePickerOpen(true)}
+                  className={`flex items-center justify-center w-16 h-16 bg-surface-dark ${data.hasProfile ? "cursor-pointer active:scale-95 transition-transform" : ""}`}
+                >
+                  <TwemojiFlag
+                    emoji={COUNTRIES.find(c => c.code === (data.profiles.find(p => p.id === activeProfileId)?.country ?? "JPN"))?.flag ?? "🇯🇵"}
+                    size={40}
+                  />
+                </button>
+                <div className="flex items-center justify-center w-16 bg-white p-2">
+                  <img src="/img/symbol.svg" alt="WC26" className="w-12 h-auto" />
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-        <div className="bg-accent-blue px-5 py-3">
-          <div className="flex items-center justify-between text-white text-center">
-            {[
-              { label: "MATCH", value: data.stats.match },
-              { label: "LEVEL", value: data.stats.level },
-              { label: "보낸 칭찬", value: data.stats.sentPraise },
-              { label: "받은 칭찬", value: data.stats.receivedPraise },
-              { label: "POM", value: data.stats.pom },
-            ].map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-semibold tracking-wider uppercase opacity-80">{stat.label}</span>
-                <span className="text-2xl font-russo">{stat.value}</span>
+              <div className="flex-1 flex justify-end -mr-5 lg:mr-0 lg:justify-center">
+                {data.hasProfile ? (
+                  <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
+                ) : (
+                  <div className="w-[260px] h-[260px] flex items-center justify-center">
+                    <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.6}>
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
+            <div className="bg-accent-blue px-5 py-3">
+              <div className="flex items-center justify-between text-white text-center">
+                {[
+                  { label: "MATCH", value: data.stats.match },
+                  { label: "LEVEL", value: data.stats.level },
+                  { label: "보낸 칭찬", value: data.stats.sentPraise },
+                  { label: "받은 칭찬", value: data.stats.receivedPraise },
+                  { label: "POM", value: data.stats.pom },
+                ].map((stat) => (
+                  <div key={stat.label} className="flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-semibold tracking-wider uppercase opacity-80">{stat.label}</span>
+                    <span className="text-2xl font-russo">{stat.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Right: Tabs + Content */}
+        <div className="flex-1 min-w-0">
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 bg-white sticky top-0 z-50">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex-1 py-4 text-sm font-bold text-center transition-colors relative cursor-pointer ${
+                  activeTab === tab.key ? "text-surface-dark" : "text-on-surface-variant"
+                }`}
+              >
+                {tab.label}
+                {activeTab === tab.key && (
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full bg-surface-dark" />
+                )}
+              </button>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white sticky top-0 z-50">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-4 text-sm font-bold text-center transition-colors relative cursor-pointer ${
-              activeTab === tab.key ? "text-surface-dark" : "text-on-surface-variant"
-            }`}
-          >
-            {tab.label}
-            {activeTab === tab.key && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full bg-surface-dark" />
-            )}
-          </button>
-        ))}
+          {/* Tab Content */}
+          {activeTab === "main" && (
+            <MainTab
+              data={data}
+              scenario={scenario}
+              openedPack={openedPack}
+              setOpenedPack={setOpenedPack}
+              packPhase={packPhase}
+            />
+          )}
+          {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
+          {activeTab === "collection" && <CollectionTab data={data} />}
+        </div>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "main" && (
-        <MainTab
-          data={data}
-          scenario={scenario}
-          openedPack={openedPack}
-          setOpenedPack={setOpenedPack}
-          packPhase={packPhase}
-        />
+      {/* Profile Picker Modal */}
+      {profilePickerOpen && data.profiles.length > 0 && (
+        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/50" onClick={() => setProfilePickerOpen(false)}>
+          <div className="w-full max-w-lg rounded-t-2xl bg-white p-5 pb-10" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-extrabold text-surface-dark">프로필 선택</h3>
+              <button onClick={() => setProfilePickerOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {data.profiles.map((profile) => {
+                const country = COUNTRIES.find((c) => c.code === profile.country)!;
+                const isSelected = profile.id === activeProfileId;
+                return (
+                  <button
+                    key={profile.id}
+                    onClick={() => { setActiveProfileId(profile.id); setProfilePickerOpen(false); }}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <div className={`relative w-full aspect-[4/5] rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 transition-all ${
+                      isSelected ? "border-accent-green shadow-md" : "border-transparent"
+                    }`}>
+                      <img src={profile.imageUrl} alt={country.nameKo} className="w-full h-full object-cover" draggable={false} />
+                      <div className="absolute top-1.5 left-1.5">
+                        <TwemojiFlag emoji={country.flag} size={16} />
+                      </div>
+                      {isSelected && (
+                        <div className="absolute bottom-0 inset-x-0 bg-accent-green py-0.5 text-center">
+                          <span className="text-[8px] font-bold text-surface-dark">적용중</span>
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium text-on-surface-variant">{country.nameKo}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
-      {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
-      {activeTab === "collection" && <CollectionTab data={data} />}
 
       {/* Debug FAB */}
       <button
@@ -627,8 +691,78 @@ function MainTab({
 
 // ─── Friends Tab ───
 function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario }) {
+  const [selectedFriend, setSelectedFriend] = useState<{ name: string; country: string; imageUrl: string | null } | null>(null);
+  const selectedCountry = selectedFriend ? COUNTRIES.find((c) => c.code === selectedFriend.country)! : null;
+
+  useEffect(() => {
+    if (selectedFriend) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [selectedFriend]);
+
   return (
     <section className="bg-white px-5 py-8">
+      {/* Friend Detail Bottom Sheet */}
+      {selectedFriend && selectedCountry && (
+        <div className="fixed inset-0 z-[55] flex items-end justify-center bg-black/40" onClick={() => setSelectedFriend(null)}>
+          <div className="w-full max-w-lg rounded-t-2xl bg-white px-5 pt-4 pb-10" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-gray-300" />
+            <div className="flex flex-col items-center">
+              {/* Profile Card */}
+              <div className="w-[65vw] max-w-[260px] overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100">
+                <div className="relative w-full" style={{ background: selectedCountry.primary, paddingBottom: "150%" }}>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    {selectedFriend.imageUrl ? (
+                      <img src={selectedFriend.imageUrl} alt={selectedFriend.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-black/20">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.5}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute bottom-0 left-0 flex flex-col">
+                    <div className="flex items-center justify-center w-8 h-8 bg-surface-dark">
+                      <TwemojiFlag emoji={selectedCountry.flag} size={22} />
+                    </div>
+                    <div className="flex items-center justify-center w-8 bg-white p-1">
+                      <img src="/img/symbol.svg" alt="WC26" className="w-5 h-auto" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-accent-blue px-3 py-2">
+                  <div className="flex items-center justify-between text-white text-center">
+                    {[
+                      { label: "MATCH", value: selectedFriend.stats?.match ?? 0 },
+                      { label: "LEVEL", value: selectedFriend.stats?.level ?? 0 },
+                      { label: "칭찬", value: selectedFriend.stats?.praise ?? 0 },
+                      { label: "POM", value: selectedFriend.stats?.pom ?? 0 },
+                    ].map((s) => (
+                      <div key={s.label} className="flex flex-col items-center">
+                        <span className="text-[7px] font-semibold tracking-wider uppercase opacity-80">{s.label}</span>
+                        <span className="text-base font-russo">{s.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-white px-3 py-2.5 text-center">
+                  <div className="text-sm font-extrabold text-surface-dark">{selectedFriend.name}</div>
+                  <div className="text-[10px] text-on-surface-variant">{selectedCountry.nameKo}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedFriend(null)}
+                className="mt-5 w-[65vw] max-w-[260px] rounded-xl bg-accent-blue py-3 text-sm font-bold text-white"
+              >
+                프로필 방문하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Case 3: Inviter highlight */}
       {scenario === "invited" && data.inviter && (
         <div className="mb-6 rounded-2xl border border-accent-blue/20 bg-accent-blue/5 p-4">
@@ -666,8 +800,8 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
           {data.friends.map((friend) => {
             const country = COUNTRIES.find((c) => c.code === friend.country)!;
             return (
-              <div key={friend.name} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100">
-                <div className="relative h-32" style={{ background: `linear-gradient(160deg, ${country.primary}dd, ${country.secondary}dd)` }}>
+              <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100 text-left transition-transform active:scale-95">
+                <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
                   <div className="absolute inset-0 flex items-center justify-center">
                     {friend.imageUrl ? (
                       <img src={friend.imageUrl} alt={friend.name} className="h-full w-full object-cover" draggable={false} />
@@ -677,19 +811,29 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                       </div>
                     )}
                   </div>
-                  <div className="absolute top-2 left-2"><TwemojiFlag emoji={country.flag} size={18} /></div>
+                  {/* Flag + Symbol badge */}
+                  <div className="absolute bottom-0 left-0 flex flex-col">
+                    <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
+                      <TwemojiFlag emoji={country.flag} size={18} />
+                    </div>
+                    <div className="flex items-center justify-center w-6 bg-white p-0.5">
+                      <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white px-2.5 py-2">
+                <div className="bg-white px-3 py-2">
                   <div className="text-xs font-bold text-surface-dark truncate">{friend.name}</div>
                   <div className="text-[10px] text-on-surface-variant">{country.nameKo}</div>
                 </div>
-              </div>
+              </button>
             );
           })}
-          <button className="flex h-full min-h-[170px] flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
-            <span className="text-[10px] font-medium">친구 초대</span>
-          </button>
+          <div className="relative" style={{ paddingBottom: "150%" }}>
+            <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
+              <span className="text-[10px] font-medium">친구 초대</span>
+            </button>
+          </div>
         </div>
       )}
     </section>
