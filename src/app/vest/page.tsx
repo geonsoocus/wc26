@@ -196,16 +196,18 @@ export default function VestPage() {
               </div>
               <div className="flex-1 flex justify-end -mr-5 lg:mr-0 lg:justify-center">
                 {data.hasProfile ? (
-                  <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
+                  <button onClick={() => setProfilePickerOpen(true)} className="active:scale-95 transition-transform">
+                    <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
+                  </button>
                 ) : (
-                  <div className="w-[260px] h-[260px] flex items-center justify-center">
+                  <button onClick={() => setProfilePickerOpen(true)} className="w-[260px] h-[260px] flex items-center justify-center active:scale-95 transition-transform">
                     <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
                       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.6}>
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                       </svg>
                     </div>
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
