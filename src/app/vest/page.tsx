@@ -57,7 +57,7 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
@@ -86,14 +86,17 @@ const SCENARIO_DATA = {
       { slot: 3, country: null, unlocked: false },
     ],
     friends: [
-      { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", stats: { match: 12, level: 8, praise: 45, pom: 3 } },
-      { name: "히어로", country: "FRA", imageUrl: "/img/profile_hero.png", stats: { match: 8, level: 6, praise: 32, pom: 1 } },
-      { name: "호두", country: "ARG", imageUrl: "/img/profile_hodoo.png", stats: { match: 15, level: 9, praise: 58, pom: 5 } },
-      { name: "라임", country: "ESP", imageUrl: "/img/profile_lime.png", stats: { match: 5, level: 4, praise: 18, pom: 0 } },
-      { name: "막국", country: "GER", imageUrl: "/img/profile_macgook.png", stats: { match: 10, level: 7, praise: 41, pom: 2 } },
-      { name: "큐", country: "KOR", imageUrl: "/img/profile_q.png", stats: { match: 20, level: 10, praise: 72, pom: 7 } },
-      { name: "제리", country: "JPN", imageUrl: "/img/profile_zerry.png", stats: { match: 3, level: 3, praise: 12, pom: 0 } },
-      { name: "정남", country: "NED", imageUrl: "/img/profile_jeongnam.png", stats: { match: 9, level: 6, praise: 35, pom: 2 } },
+      { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", hasProfile: true, stats: { match: 12, level: 8, praise: 45, pom: 3 } },
+      { name: "히어로", country: "FRA", imageUrl: "/img/profile_hero.png", hasProfile: true, stats: { match: 8, level: 6, praise: 32, pom: 1 } },
+      { name: "호두", country: "ARG", imageUrl: "/img/profile_hodoo.png", hasProfile: true, stats: { match: 15, level: 9, praise: 58, pom: 5 } },
+      { name: "라임", country: "ESP", imageUrl: "/img/profile_lime.png", hasProfile: true, stats: { match: 5, level: 4, praise: 18, pom: 0 } },
+      { name: "막국", country: "GER", imageUrl: "/img/profile_macgook.png", hasProfile: true, stats: { match: 10, level: 7, praise: 41, pom: 2 } },
+      { name: "큐", country: "KOR", imageUrl: "/img/profile_q.png", hasProfile: true, stats: { match: 20, level: 10, praise: 72, pom: 7 } },
+      { name: "제리", country: "JPN", imageUrl: "/img/profile_zerry.png", hasProfile: true, stats: { match: 3, level: 3, praise: 12, pom: 0 } },
+      { name: "정남", country: "NED", imageUrl: "/img/profile_jeongnam.png", hasProfile: true, stats: { match: 9, level: 6, praise: 35, pom: 2 } },
+      { name: "민수", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 5, level: 3, praise: 10, pom: 0 } },
+      { name: "지은", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 8, level: 5, praise: 20, pom: 1 } },
+      { name: "태영", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 2, level: 2, praise: 3, pom: 0 } },
     ],
     hasProfile: true,
     matchMission: { completed: 1, total: 3 },
@@ -115,7 +118,7 @@ const SCENARIO_DATA = {
       { slot: 2, country: null, unlocked: false },
       { slot: 3, country: null, unlocked: false },
     ],
-    friends: [] as { name: string; country: string; imageUrl: string | null; stats?: { match: number; level: number; praise: number; pom: number } }[],
+    friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number } }[],
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
@@ -945,53 +948,83 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
         </div>
       )}
 
-      <h2 className="text-xl font-extrabold text-surface-dark">친구들</h2>
-      <p className="mt-1 text-xs text-on-surface-variant">친구들의 월드컵 프로필을 확인해보세요</p>
+      {(() => {
+        const withProfile = data.friends.filter(f => f.hasProfile !== false);
+        const withoutProfile = data.friends.filter(f => f.hasProfile === false);
+        return (<>
+          <h2 className="text-xl font-extrabold text-surface-dark">친구들</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">친구들의 월드컵 프로필을 확인해보세요</p>
 
-      {data.friends.length === 0 ? (
-        <div className="mt-8 text-center py-10">
-          <div className="text-4xl">👥</div>
-          <p className="mt-3 text-sm font-bold text-surface-dark">아직 친구가 없어요</p>
-          <p className="mt-1 text-xs text-on-surface-variant">친구를 초대해서 함께 즐겨보세요</p>
-          <button className="mt-4 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white">친구 초대하기</button>
-        </div>
-      ) : (
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          {data.friends.map((friend) => {
-            const country = COUNTRIES.find((c) => c.code === friend.country)!;
-            return (
-              <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
-                <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {friend.imageUrl ? (
-                      <img src={friend.imageUrl} alt={friend.name} className="h-full w-full object-cover" draggable={false} />
-                    ) : (
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/20">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.5}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+          {data.friends.length === 0 ? (
+            <div className="mt-8 text-center py-10">
+              <div className="text-4xl">👥</div>
+              <p className="mt-3 text-sm font-bold text-surface-dark">아직 친구가 없어요</p>
+              <p className="mt-1 text-xs text-on-surface-variant">친구를 초대해서 함께 즐겨보세요</p>
+              <button className="mt-4 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white">친구 초대하기</button>
+            </div>
+          ) : (<>
+            {/* Friends with profile */}
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              {withProfile.map((friend) => {
+                const country = COUNTRIES.find((c) => c.code === friend.country)!;
+                return (
+                  <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
+                    <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {friend.imageUrl ? (
+                          <img src={friend.imageUrl} alt={friend.name} className="h-full w-full object-cover" draggable={false} />
+                        ) : (
+                          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/20">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.5}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  {/* Flag + Symbol badge */}
-                  <div className="absolute bottom-0 left-0 flex flex-col">
-                    <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
-                      <TwemojiFlag emoji={country.flag} size={18} />
+                      <div className="absolute bottom-0 left-0 flex flex-col">
+                        <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
+                          <TwemojiFlag emoji={country.flag} size={18} />
+                        </div>
+                        <div className="flex items-center justify-center w-6 bg-white p-0.5">
+                          <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-center w-6 bg-white p-0.5">
-                      <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
+                  </button>
+                );
+              })}
+              <div className="relative" style={{ paddingBottom: "150%" }}>
+                <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
+                  <span className="text-[10px] font-medium">친구 초대</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Friends without profile */}
+            {withoutProfile.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-sm font-bold text-surface-dark">아직 프로필을 만들지 않은 친구</h3>
+                <p className="mt-1 text-[10px] text-on-surface-variant">친구에게 알려서 함께 즐겨보세요</p>
+                <div className="mt-3 space-y-2">
+                  {withoutProfile.map((friend) => (
+                    <div key={friend.name} className="flex items-center gap-3 rounded-xl bg-surface-hover px-4 py-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 text-sm font-bold text-on-surface-variant flex-shrink-0">
+                        {friend.name[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-surface-dark">{friend.name}</div>
+                        <div className="text-[10px] text-on-surface-variant">매치 {friend.stats?.match ?? 0}회 참여</div>
+                      </div>
+                      <button className="flex-shrink-0 rounded-lg bg-accent-blue px-3 py-1.5 text-[10px] font-bold text-white">
+                        알리기
+                      </button>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              </button>
-            );
-          })}
-          <div className="relative" style={{ paddingBottom: "150%" }}>
-            <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
-              <span className="text-[10px] font-medium">친구 초대</span>
-            </button>
-          </div>
-        </div>
-      )}
+              </div>
+            )}
+          </>)}
+        </>);
+      })()}
     </section>
   );
 }
