@@ -336,7 +336,7 @@ function InviteBanner({
 }
 
 // ─── Main Tab ───
-type ScenarioData = typeof SCENARIO_DATA.active;
+type ScenarioData = typeof SCENARIO_DATA[Scenario];
 type ProfileGenStep = "idle" | "selectCountry" | "uploadPhoto" | "generating" | "done";
 
 function MainTab({
