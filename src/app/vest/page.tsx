@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
 
@@ -67,7 +67,7 @@ const SCENARIO_DATA = {
     desc: "프로필 생성 완료, 매치 참여 중",
     ownedVests: ["KOR", "BRA", "FRA", "MEX", "GER"],
     packs: [
-      { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "MEX" } },
+      { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "GER" } },
       { id: 2, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "JPN" } },
       { id: 3, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "5,000원 할인 쿠폰" } },
       { id: 4, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "무료 참가 쿠폰" } },
@@ -132,7 +132,7 @@ export default function VestPage() {
   const [debugOpen, setDebugOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("main");
   const [openedPack, setOpenedPack] = useState<Pack | null>(null);
-  const [packPhase, setPackPhase] = useState<"shake" | "reveal">("shake");
+  const [packPhase, setPackPhase] = useState<"hold" | "flash" | "reveal">("hold");
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [inviteDismissed, setInviteDismissed] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
@@ -153,9 +153,7 @@ export default function VestPage() {
 
   useEffect(() => {
     if (openedPack) {
-      setPackPhase("shake");
-      const timer = setTimeout(() => setPackPhase("reveal"), 1200);
-      return () => clearTimeout(timer);
+      setPackPhase("hold");
     }
   }, [openedPack]);
 
@@ -270,7 +268,7 @@ export default function VestPage() {
               onOpenProfilePicker={() => setProfilePickerOpen(true)}
             />
           )}
-          {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} />}
+          {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} />}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
           {activeTab === "collection" && <CollectionTab data={data} />}
         </div>
@@ -486,17 +484,261 @@ function MainTab({
   );
 }
 
+// ─── Confetti Burst ───
+function ConfettiBurst() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    import("canvas-confetti").then((mod) => {
+      const confetti = mod.default;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+      const colors = ["#96ff62", "#1570ff", "#ffd700", "#ff6b6b", "#a855f7", "#f97316", "#06b6d4", "#ec4899"];
+
+      // Initial big burst from center
+      myConfetti({
+        particleCount: 100,
+        spread: 100,
+        origin: { x: 0.5, y: 0.4 },
+        colors,
+        ticks: 300,
+        gravity: 0.8,
+        scalar: 1.2,
+        shapes: ["square", "circle"],
+        drift: 0,
+      });
+
+      // Continuous side cannons
+      let count = 0;
+      const interval = setInterval(() => {
+        count++;
+        if (count > 8) { clearInterval(interval); return; }
+
+        // Left cannon
+        myConfetti({
+          particleCount: 15,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0, y: 0.6 },
+          colors,
+          ticks: 250,
+          gravity: 1,
+          scalar: 1.1,
+          shapes: ["square", "circle"],
+          drift: 0.5,
+        });
+
+        // Right cannon
+        myConfetti({
+          particleCount: 15,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1, y: 0.6 },
+          colors,
+          ticks: 250,
+          gravity: 1,
+          scalar: 1.1,
+          shapes: ["square", "circle"],
+          drift: -0.5,
+        });
+      }, 200);
+
+      return () => clearInterval(interval);
+    });
+  }, []);
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-[71]" style={{ width: "100vw", height: "100vh" }} />;
+}
+
+// ─── Pack Open Screen ───
+const CONFETTI_COLORS = ["#96ff62", "#1570ff", "#ffd700", "#ff6b6b", "#a855f7", "#f97316", "#06b6d4", "#ec4899"];
+
+function PackOpenScreen({
+  pack,
+  phase,
+  setPhase,
+  onClose,
+}: {
+  pack: Pack;
+  phase: "hold" | "flash" | "reveal";
+  setPhase: (p: "hold" | "flash" | "reveal") => void;
+  onClose: () => void;
+}) {
+  const [spinSpeed, setSpinSpeed] = useState(0);
+  const [holdTime, setHoldTime] = useState(0);
+  const [pressing, setPressing] = useState(false);
+  const reward = pack.mockReward;
+  const isNations = reward.kind === "nations";
+  const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
+
+  // Increment hold time while pressing
+  useEffect(() => {
+    if (phase !== "hold" || !pressing) return;
+    const interval = setInterval(() => {
+      setHoldTime((t) => t + 0.1);
+    }, 100);
+    return () => clearInterval(interval);
+  }, [phase, pressing]);
+
+  // Map hold time to spin speed
+  useEffect(() => {
+    if (holdTime > 0) {
+      setSpinSpeed(Math.min(holdTime * 0.3, 3));
+    }
+  }, [holdTime]);
+
+  // Auto-open when gauge is full
+  useEffect(() => {
+    if (holdTime >= 2 && phase === "hold") {
+      setPressing(false);
+      setPhase("flash");
+      setTimeout(() => setPhase("reveal"), 600);
+    }
+  }, [holdTime, phase, setPhase]);
+
+  const handleRelease = () => {
+    setPressing(false);
+  };
+
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col bg-surface-dark overflow-hidden">
+      {/* Hold phase: spinning pack */}
+      {phase === "hold" && (
+        <div
+          className="flex-1 flex flex-col items-center justify-center gap-6 select-none"
+          onPointerDown={() => { setPressing(true); setHoldTime(0.1); }}
+          onPointerUp={handleRelease}
+          onPointerLeave={handleRelease}
+        >
+          <div style={{ perspective: "600px" }}>
+            <div
+              style={{
+                animation: pressing && spinSpeed > 0 ? `packSpinY ${Math.max(0.15, 1 - spinSpeed * 0.3)}s linear infinite` : "none",
+                transformStyle: "preserve-3d",
+              }}
+            >
+              <img src={pack.image} alt="Pack" className="h-[320px] w-[205px]" draggable={false} />
+            </div>
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-kbl text-white">
+              {holdTime < 0.3 ? "꾹 누르고 있으세요!" : "게이지를 채우세요!"}
+            </p>
+            <p className="mt-1 text-xs text-white/50">
+              {isNations ? "네이션스팩" : "리워드팩"}
+            </p>
+          </div>
+          {/* Progress ring */}
+          <div className="w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-accent-green transition-all duration-100"
+              style={{ width: `${Math.min(holdTime / 2 * 100, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Flash phase */}
+      {phase === "flash" && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-flash w-[300px] h-[300px] rounded-full bg-white" />
+        </div>
+      )}
+
+      {/* Reveal phase */}
+      {phase === "reveal" && (
+        <div className="flex-1 flex flex-col relative">
+          {/* Confetti */}
+          <ConfettiBurst />
+
+          {/* Top title */}
+          <div className="text-center pt-16 relative z-20">
+            {isNations && rewardCountry ? (
+              <>
+                <div className="text-xs font-semibold text-accent-green uppercase tracking-widest">Nations Pack</div>
+                <div className="mt-2 text-lg font-kbl text-white">새로운 조끼를 획득했어요!</div>
+              </>
+            ) : (
+              <>
+                <div className="text-xs font-semibold text-accent-blue uppercase tracking-widest">Reward Pack</div>
+                <div className="mt-2 text-lg font-kbl text-white">보상을 획득했어요!</div>
+              </>
+            )}
+          </div>
+
+          {/* Reward content - centered */}
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-reward-slide-up text-center px-8">
+              {isNations && rewardCountry ? (
+                <>
+                  <div className="mx-auto animate-vest-pop">
+                  {rewardCountry.bibImage ? (
+                    <img src={rewardCountry.bibImage} alt={rewardCountry.name} className="h-[300px] object-contain mx-auto" draggable={false} />
+                  ) : (
+                    <TwemojiFlag emoji={rewardCountry.flag} size={80} />
+                  )}
+                </div>
+                  <div className="mt-6 text-3xl font-russo text-white uppercase tracking-wider">{rewardCountry.name}</div>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto animate-vest-pop flex flex-col items-center">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10">
+                    {(reward as RewardPackReward).item.includes("토큰") ? (
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                      </svg>
+                    ) : (reward as RewardPackReward).item.includes("쿠폰") ? (
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="5" width="20" height="14" rx="2" />
+                        <line x1="2" y1="10" x2="22" y2="10" />
+                      </svg>
+                    ) : (
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+                      </svg>
+                    )}
+                  </div>
+                  <p className="mt-5 text-xl font-bold text-white">
+                    {(reward as RewardPackReward).item}
+                  </p>
+                </div>
+              </>
+            )}
+            </div>
+          </div>
+
+          {/* Bottom button */}
+          <div className="absolute bottom-0 inset-x-0 p-5 pb-10">
+            <button
+              onClick={onClose}
+              className="w-full rounded-xl bg-accent-green py-4 text-sm font-bold text-surface-dark"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Packs Tab ───
 function PacksTab({
   data,
   openedPack,
   setOpenedPack,
   packPhase,
+  setPackPhase,
 }: {
   data: ScenarioData;
   openedPack: Pack | null;
   setOpenedPack: (v: Pack | null) => void;
-  packPhase: "shake" | "reveal";
+  packPhase: "hold" | "flash" | "reveal";
+  setPackPhase: (v: "hold" | "flash" | "reveal") => void;
 }) {
   return (
     <section className="bg-white px-5 py-8">
@@ -523,69 +765,8 @@ function PacksTab({
         </div>
       )}
 
-      {/* Pack Open Modal */}
-      {openedPack && (() => {
-        const reward = openedPack.mockReward;
-        const isNations = reward.kind === "nations";
-        const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.7)] backdrop-blur-sm" onClick={() => { if (packPhase === "reveal") setOpenedPack(null); }}>
-            <div className="mx-6 w-full max-w-sm text-center" onClick={(e) => e.stopPropagation()}>
-              {packPhase === "shake" ? (
-                <div className="flex flex-col items-center gap-4">
-                  <img src={openedPack.image} alt="Pack" className="h-[194px] w-[124px] animate-pack-shake" />
-                  <p className="text-sm font-semibold text-white animate-pulse">
-                    {isNations ? "네이션스팩" : "리워드팩"} 오픈 중...
-                  </p>
-                </div>
-              ) : (
-                <div className="animate-pack-reveal rounded-2xl bg-white p-8">
-                  {isNations && rewardCountry ? (
-                    <>
-                      <div className="text-xs font-semibold text-accent-green uppercase tracking-wider">Nations Pack</div>
-                      <div className="text-lg font-kbl text-surface-dark mt-1">새로운 조끼 획득!</div>
-                      <div className="mx-auto mt-6 animate-vest-pop">
-                        <VestCard country={rewardCountry} owned={true} size="lg" />
-                      </div>
-                      <p className="mt-4 text-sm text-on-surface-variant">
-                        {rewardCountry.flag} {rewardCountry.nameKo} 스타일 플랩 조끼를 획득했습니다
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-xs font-semibold text-accent-blue uppercase tracking-wider">Reward Pack</div>
-                      <div className="text-lg font-kbl text-surface-dark mt-1">보상 획득!</div>
-                      <div className="mx-auto mt-6 animate-vest-pop flex flex-col items-center">
-                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-accent-blue/10">
-                          {(reward as RewardPackReward).item.includes("토큰") ? (
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                            </svg>
-                          ) : (reward as RewardPackReward).item.includes("쿠폰") ? (
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <rect x="2" y="5" width="20" height="14" rx="2" />
-                              <line x1="2" y1="10" x2="22" y2="10" />
-                            </svg>
-                          ) : (
-                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
-                            </svg>
-                          )}
-                        </div>
-                        <p className="mt-4 text-base font-bold text-surface-dark">
-                          {(reward as RewardPackReward).item}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                  <button onClick={() => setOpenedPack(null)} className="mt-6 w-full rounded-xl bg-accent-green px-4 py-3 text-sm font-bold text-surface-dark">확인</button>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })()}
+      {/* Pack Open Fullscreen */}
+      {openedPack && <PackOpenScreen pack={openedPack} phase={packPhase} setPhase={setPackPhase} onClose={() => setOpenedPack(null)} />}
     </section>
   );
 }
