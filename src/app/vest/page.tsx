@@ -664,7 +664,7 @@ function ConfettiBurst() {
       if (!canvas) return;
 
       const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
-      const colors = ["#96ff62", "#1570ff", "#ffd700", "#ff6b6b", "#a855f7", "#f97316", "#06b6d4", "#ec4899"];
+      const colors = ["#FF4029", "#1570FF", "#FFBE1A", "#E0FF47"];
 
       // Initial big burst from center
       myConfetti({
@@ -1915,7 +1915,7 @@ function PomScreen({ profileImage, country, onClose }: { profileImage: string; c
       const canvas = confettiCanvasRef.current;
       if (!canvas) return;
       const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
-      const colors = ["#e0ff47", "#ffcf0a", "#1570ff", "#96ff62", "#ff6b6b", "#a855f7", "#f97316", "#5fc0e1"];
+      const colors = ["#FF4029", "#1570FF", "#FFBE1A", "#E0FF47"];
 
       myConfetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.45 }, colors, ticks: 300, gravity: 0.8, scalar: 1.3, shapes: ["square", "circle"] });
 
