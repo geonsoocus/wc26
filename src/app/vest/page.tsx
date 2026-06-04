@@ -27,16 +27,20 @@ interface RewardPackReward {
   item: string;
 }
 
-const REWARD_POOL = [
-  "대한민국 국가대표 유니폼",
-  "프로필 생성 토큰 1개",
-  "프로필 생성 토큰 2개",
-  "프로필 생성 토큰 3개",
-  "프로필 생성 토큰 5개",
+const BONUS_REWARD_POOL = [
+  "1,000원 할인 쿠폰",
   "2,000원 할인 쿠폰",
   "5,000원 할인 쿠폰",
-  "무료 참가 쿠폰",
+  "FREE 1경기 무료 쿠폰",
+  "대한민국 국가대표 유니폼",
 ];
+
+function rollRewardPackRewards(): { baseTokens: number; bonus: string | null } {
+  const baseTokens = Math.floor(Math.random() * 100) + 1;
+  const hasBonus = Math.random() < 0.4;
+  const bonus = hasBonus ? BONUS_REWARD_POOL[Math.floor(Math.random() * BONUS_REWARD_POOL.length)] : null;
+  return { baseTokens, bonus };
+}
 
 // ─── Scenario Data ───
 type Scenario = "new" | "active" | "invited";
@@ -292,7 +296,7 @@ function VestPageInner() {
                 key={tab.key}
                 href={tab.key === "main" ? "/vest" : `/vest?tab=${tab.key}`}
                 onClick={(e) => { e.preventDefault(); setActiveTab(tab.key); }}
-                className={`flex-1 py-4 text-sm font-kbl text-center transition-colors relative cursor-pointer ${
+                className={`flex-1 py-4 text-sm font-bold text-center transition-colors relative cursor-pointer ${
                   activeTab === tab.key ? "text-surface-dark" : "text-on-surface-variant"
                 }`}
               >
@@ -358,7 +362,7 @@ function VestPageInner() {
         <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
           <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-kbl text-surface-dark">시나리오 선택</h3>
+              <h3 className="text-base font-bold text-surface-dark">시나리오 선택</h3>
               <button onClick={() => setDebugOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
             </div>
             <div className="space-y-2">
@@ -378,7 +382,7 @@ function VestPageInner() {
               ))}
             </div>
             <div className="mt-4 pt-4 border-t border-gray-100">
-              <h3 className="text-sm font-kbl text-surface-dark mb-2">이벤트</h3>
+              <h3 className="text-sm font-bold text-surface-dark mb-2">이벤트</h3>
               <button
                 onClick={() => { setPomOpen(true); setDebugOpen(false); }}
                 className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left"
@@ -392,6 +396,13 @@ function VestPageInner() {
               >
                 <div className="text-sm font-bold text-surface-dark">📋 매치 상세</div>
                 <div className="text-xs text-on-surface-variant mt-0.5">매치 디테일 페이지 (WC26 리워드 + 프로필)</div>
+              </a>
+              <a
+                href="/locker"
+                className="block w-full rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-left"
+              >
+                <div className="text-sm font-bold text-surface-dark">🚪 라커룸</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">매치 라커룸 — 팀 편성, 프로필 확인</div>
               </a>
             </div>
           </div>
@@ -407,7 +418,7 @@ function WelcomeOverlay({ onDismiss }: { onDismiss: () => void }) {
     <div className="fixed inset-0 z-[55] flex items-center justify-center bg-[rgba(0,0,0,0.7)] backdrop-blur-sm">
       <div className="mx-6 w-full max-w-sm rounded-2xl bg-white p-8 text-center">
         <div className="text-4xl">🎉</div>
-        <h2 className="mt-3 text-xl font-kbl text-surface-dark">PLAB WC26에 오신 걸 환영해요!</h2>
+        <h2 className="mt-3 text-xl font-bold text-surface-dark">PLAB WC26에 오신 걸 환영해요!</h2>
         <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">
           2026 월드컵을 플랩에서 즐겨보세요!<br />
           웰컴 팩을 드렸어요. 열어서 첫 조끼를 받아보세요
@@ -537,10 +548,10 @@ function MainTab({
       {!data.hasProfile && (
         <section className="rounded-2xl bg-gray-50 px-5 py-8">
           <div className="text-center">
-            <h2 className="text-lg font-kbl text-surface-dark">
+            <h2 className="text-lg font-bold text-surface-dark">
               {scenario === "invited" ? "친구처럼 프로필을 만들어보세요!" : "먼저 프로필을 만들어보세요!"}
             </h2>
-            <p className="mt-1 text-xs text-on-surface-variant">
+            <p className="mt-1 text-sm text-on-surface-variant">
               AI가 월드컵 국가대표 스타일의 프로필 이미지를 만들어드려요
             </p>
             <button
@@ -564,7 +575,7 @@ function MainTab({
 
       {/* 우승국 예측 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-8">
-        <h2 className="text-xl font-kbl text-surface-dark">우승국 예측</h2>
+        <h2 className="text-xl font-bold text-surface-dark">우승국 예측</h2>
         <p className="mt-1 text-sm font-medium text-black">획득한 조끼로 우승국을 예측해보세요!</p>
         <div className="mt-6 flex gap-2">
           {predictions.map((pred) => {
@@ -638,7 +649,7 @@ function MainTab({
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-kbl text-surface-dark">우승국 선택</h3>
+              <h3 className="text-lg font-bold text-surface-dark">우승국 선택</h3>
               <button onClick={() => setPickingSlot(null)} className="text-sm text-on-surface-variant">닫기</button>
             </div>
             {ownedCountries.length === 0 ? (
@@ -763,6 +774,10 @@ function PackOpenScreen({
   const [spinSpeed, setSpinSpeed] = useState(0);
   const [holdTime, setHoldTime] = useState(0);
   const [pressing, setPressing] = useState(false);
+  const [rewardRoll] = useState(() => pack.mockReward.kind === "reward" ? rollRewardPackRewards() : null);
+  const [showBonus, setShowBonus] = useState(false);
+  const [bonusFlash, setBonusFlash] = useState(false);
+  const [bonusConfetti, setBonusConfetti] = useState(false);
   const reward = pack.mockReward;
   const isNations = reward.kind === "nations";
   const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
@@ -846,7 +861,15 @@ function PackOpenScreen({
       {phase === "reveal" && (
         <div className="flex-1 flex flex-col relative">
           {/* Confetti */}
-          <ConfettiBurst />
+          {!showBonus && !bonusFlash && <ConfettiBurst />}
+          {bonusConfetti && <ConfettiBurst />}
+
+          {/* Bonus Flash */}
+          {bonusFlash && (
+            <div className="absolute inset-0 z-[75] flex items-center justify-center">
+              <div className="animate-flash w-[300px] h-[300px] rounded-full bg-white" />
+            </div>
+          )}
 
           {/* Top title */}
           <div className="text-center pt-16 relative z-20">
@@ -854,6 +877,11 @@ function PackOpenScreen({
               <>
                 <div className="text-xs font-semibold text-accent-green uppercase tracking-widest">Nations Pack</div>
                 <div className="mt-2 text-lg font-kbl text-white">새로운 조끼를 획득했어요!</div>
+              </>
+            ) : showBonus ? (
+              <>
+                <div className="text-xs font-semibold text-[#FFBE1A] uppercase tracking-widest">Bonus Reward!</div>
+                <div className="mt-2 text-lg font-kbl text-white">추가 보상이 나왔어요!</div>
               </>
             ) : (
               <>
@@ -865,54 +893,58 @@ function PackOpenScreen({
 
           {/* Reward content - centered */}
           <div className="flex-1 flex items-center justify-center">
-            <div className="animate-reward-slide-up text-center px-8">
+            <div key={showBonus ? "bonus" : "base"} className="animate-reward-slide-up text-center px-8">
               {isNations && rewardCountry ? (
                 <>
                   <div className="mx-auto animate-vest-pop">
-                  {rewardCountry.bibImage ? (
-                    <img src={rewardCountry.bibImage} alt={rewardCountry.name} className="h-[300px] object-contain mx-auto" draggable={false} />
-                  ) : (
-                    <TwemojiFlag emoji={rewardCountry.flag} size={80} />
-                  )}
-                </div>
-                  <div className="mt-6 text-3xl font-russo text-white uppercase tracking-wider">{rewardCountry.name}</div>
-              </>
-            ) : (
-              <>
-                <div className="mx-auto animate-vest-pop flex flex-col items-center">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-white/10">
-                    {(reward as RewardPackReward).item.includes("토큰") ? (
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                      </svg>
-                    ) : (reward as RewardPackReward).item.includes("쿠폰") ? (
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="5" width="20" height="14" rx="2" />
-                        <line x1="2" y1="10" x2="22" y2="10" />
-                      </svg>
+                    {rewardCountry.bibImage ? (
+                      <img src={rewardCountry.bibImage} alt={rewardCountry.name} className="h-[300px] object-contain mx-auto" draggable={false} />
                     ) : (
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
-                      </svg>
+                      <TwemojiFlag emoji={rewardCountry.flag} size={80} />
                     )}
                   </div>
-                  <p className="mt-5 text-xl font-bold text-white">
-                    {(reward as RewardPackReward).item}
-                  </p>
+                  <div className="mt-6 text-3xl font-russo text-white uppercase tracking-wider">{rewardCountry.name}</div>
+                </>
+              ) : showBonus && rewardRoll?.bonus ? (
+                <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
+                  {rewardRoll.bonus.includes("쿠폰") ? (
+                    <RewardCouponCard label={rewardRoll.bonus} />
+                  ) : (
+                    <RewardGenericCard label={rewardRoll.bonus} />
+                  )}
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
+                  <RewardTokenCard label={`${rewardRoll?.baseTokens ?? 1}토큰`} />
+                </div>
+              )}
             </div>
           </div>
 
           {/* Bottom button */}
           <div className="absolute bottom-0 inset-x-0 p-5 pb-10">
-            <button
-              onClick={onClose}
-              className="w-full rounded-xl bg-accent-green py-4 text-sm font-bold text-surface-dark"
-            >
-              확인
-            </button>
+            {!isNations && !showBonus && !bonusFlash && rewardRoll?.bonus ? (
+              <button
+                onClick={() => {
+                  setBonusFlash(true);
+                  setTimeout(() => {
+                    setBonusFlash(false);
+                    setShowBonus(true);
+                    setBonusConfetti(true);
+                  }, 500);
+                }}
+                className="w-full rounded-xl bg-[#FFBE1A] py-4 text-sm font-bold text-surface-dark flex items-center justify-center gap-2"
+              >
+                <span className="text-lg">🎁</span> 보너스! 한번 더!
+              </button>
+            ) : (
+              <button
+                onClick={onClose}
+                className="w-full rounded-xl bg-accent-green py-4 text-sm font-bold text-surface-dark"
+              >
+                확인
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -937,10 +969,10 @@ function PacksTab({
   return (
     <section className="bg-white px-5 py-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-kbl text-surface-dark">나의 팩</h2>
+        <h2 className="text-xl font-bold text-surface-dark">나의 팩</h2>
         <button className="flex items-center gap-1 text-xs font-bold text-surface-dark underline">팩 얻는 방법</button>
       </div>
-      <p className="mt-1 text-xs text-on-surface-variant">팩을 오픈하고 조끼와 보상을 확인하세요</p>
+      <p className="mt-1 text-sm text-on-surface-variant">팩을 오픈하고 조끼와 보상을 확인하세요</p>
 
       {data.packs.length === 0 ? (
         <div className="mt-8 text-center py-10">
@@ -1013,7 +1045,7 @@ function ProfilePickerModal({
         {genStep === "idle" && (
           <>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-kbl text-surface-dark">내 프로필</h3>
+              <h3 className="text-base font-bold text-surface-dark">내 프로필</h3>
               <div className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -1072,7 +1104,7 @@ function ProfilePickerModal({
 
         {genStep === "selectCountry" && (
           <>
-            <h3 className="text-base font-kbl text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
+            <h3 className="text-base font-bold text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
             <p className="text-xs text-on-surface-variant mb-3">AI가 해당 국가 스타일로 프로필을 만들어드려요</p>
             <div className="relative">
               <input type="text" placeholder="국가 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-surface-hover px-4 py-2.5 pl-9 text-sm text-surface-dark placeholder:text-on-surface-variant focus:border-accent-blue focus:outline-none" />
@@ -1213,8 +1245,8 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
     <section className="rounded-2xl bg-gray-50 px-5 py-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-kbl text-surface-dark">출석체크</h2>
-          <p className="mt-1 text-xs text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
+          <h2 className="text-xl font-bold text-surface-dark">출석체크</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-russo text-surface-dark">{totalCount}<span className="text-sm font-sans text-on-surface-variant font-normal">/{WC_TOTAL_DAYS}일</span></p>
@@ -1296,7 +1328,7 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
 
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-kbl text-surface-dark">출석 캘린더</h3>
+              <h3 className="text-lg font-bold text-surface-dark">출석 캘린더</h3>
               <div className="flex items-center gap-1.5">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green">
                   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1368,8 +1400,8 @@ function MatchMission({ completed }: { completed: number }) {
 
   return (
     <section className="rounded-2xl bg-gray-50 px-5 py-6">
-      <h2 className="text-xl font-kbl text-surface-dark">매치데이</h2>
-      <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
+      <h2 className="text-xl font-bold text-surface-dark">매치데이</h2>
+      <p className="mt-1 text-sm text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
 
       <div className="mt-5 relative">
         {/* Progress line */}
@@ -1419,7 +1451,7 @@ function MatchMission({ completed }: { completed: number }) {
         <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setRewardModal(null)}>
           <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
-            <h3 className="text-base font-kbl text-surface-dark">{selectedReward.label} 보상</h3>
+            <h3 className="text-base font-bold text-surface-dark">{selectedReward.label} 보상</h3>
             <p className="mt-1 text-xs text-on-surface-variant">매치 완료 시 아래 보상을 받을 수 있어요</p>
 
             <div className="mt-5 space-y-3">
@@ -1566,7 +1598,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
         const withoutProfile = data.friends.filter(f => f.hasProfile === false);
         return (<>
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-kbl text-surface-dark">친구들</h2>
+            <h2 className="text-xl font-bold text-surface-dark">친구들</h2>
             {data.friends.length > 0 && (
               <div className="flex items-center rounded-lg bg-surface-hover p-0.5">
                 <button
@@ -1588,7 +1620,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
               </div>
             )}
           </div>
-          <p className="mt-1 text-xs text-on-surface-variant">친구들의 월드컵 프로필을 확인해보세요</p>
+          <p className="mt-1 text-sm text-on-surface-variant">친구들의 월드컵 프로필을 확인해보세요</p>
 
           {data.friends.length === 0 ? (
             <div className="mt-8 text-center py-10">
@@ -1600,7 +1632,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
           ) : (<>
             {view === "card" ? (
               /* Card View */
-              <div className="mt-6 grid grid-cols-3 gap-3">
+              <div className="mt-6 grid grid-cols-2 lg:grid-cols-3 gap-3">
                 {withProfile.map((friend) => {
                   const country = COUNTRIES.find((c) => c.code === friend.country)!;
                   return (
@@ -1710,7 +1742,7 @@ function CollectionTab({ data }: { data: ScenarioData }) {
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
       <div className="flex items-center justify-between py-2">
-        <h2 className="text-xl font-kbl text-surface-dark">컬렉션</h2>
+        <h2 className="text-xl font-bold text-surface-dark">컬렉션</h2>
         <span className="text-2xl font-semibold tracking-tight text-surface-dark">{data.ownedVests.length}/48</span>
       </div>
       <div className="mt-5 grid grid-cols-4 gap-2">
@@ -1801,8 +1833,8 @@ function StoreTab({ data }: { data: ScenarioData }) {
 
       {/* Store Items */}
       <div className="mt-6">
-        <h2 className="text-xl font-kbl text-surface-dark">굿즈</h2>
-        <p className="mt-1 text-xs text-on-surface-variant">토큰으로 실물 굿즈를 구매하세요</p>
+        <h2 className="text-xl font-bold text-surface-dark">굿즈</h2>
+        <p className="mt-1 text-sm text-on-surface-variant">토큰으로 실물 굿즈를 구매하세요</p>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -1871,6 +1903,78 @@ function StoreTab({ data }: { data: ScenarioData }) {
         </div>
       )}
     </section>
+  );
+}
+
+// ─── Reward Cards ───
+function RewardCouponCard({ label }: { label: string }) {
+  const isFree = label.includes("FREE") || label.includes("무료");
+  const amount = isFree ? "FREE" : (label.match(/[\d,]+원/)?.[0] ?? label);
+  const subtitle = isFree ? "1경기 무료 쿠폰" : "할인 쿠폰";
+  const bg = isFree
+    ? "linear-gradient(135deg, #FF4029 0%, #FF6B55 50%, #FF4029 100%)"
+    : "linear-gradient(135deg, #1570FF 0%, #4A9CFF 50%, #1570FF 100%)";
+  return (
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl" style={{ background: bg }}>
+      <div className="relative px-6 pt-8 pb-6">
+        <div className="absolute top-0 left-0 right-0 h-full opacity-20 overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%)" }} />
+          <div className="absolute -bottom-5 -left-5 w-32 h-32 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%)" }} />
+        </div>
+        <div className="relative z-10">
+          <p className="text-xs font-semibold text-white/70 uppercase tracking-widest">{isFree ? "FREE MATCH" : "DISCOUNT COUPON"}</p>
+          <p className="mt-4 text-4xl font-russo text-white">{amount}</p>
+          <p className="mt-1 text-sm text-white/80">{subtitle}</p>
+        </div>
+      </div>
+      <div className="relative flex items-center">
+        <div className="w-4 h-8 bg-surface-dark rounded-r-full -ml-px" />
+        <div className="flex-1 border-t-2 border-dashed border-white/20" />
+        <div className="w-4 h-8 bg-surface-dark rounded-l-full -mr-px" />
+      </div>
+      <div className="relative px-6 py-4 flex items-center justify-between">
+        <span className="text-xs text-white/50">PLAB WC26</span>
+        <img src="/img/symbol.svg" alt="WC26" className="h-5 w-auto opacity-50" />
+      </div>
+    </div>
+  );
+}
+
+function RewardTokenCard({ label }: { label: string }) {
+  const count = label.match(/(\d+)/)?.[1] ?? "1";
+  return (
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl" style={{ background: "linear-gradient(135deg, #22252A 0%, #393D46 50%, #22252A 100%)" }}>
+      <div className="relative px-6 pt-8 pb-6">
+        <div className="absolute top-0 left-0 right-0 h-full opacity-20 overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(150,255,98,0.3) 0%, transparent 70%)" }} />
+        </div>
+        <div className="relative z-10 flex flex-col items-center">
+          <img src="/img/token.svg" alt="token" className="h-16 w-16" draggable={false} />
+          <p className="mt-4 text-4xl font-russo text-accent-green">{count}</p>
+          <p className="mt-1 text-sm text-white/80">토큰</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RewardGenericCard({ label }: { label: string }) {
+  return (
+    <div className="w-full rounded-2xl overflow-hidden shadow-2xl" style={{ background: "linear-gradient(135deg, #96FF62 0%, #6BE03A 50%, #96FF62 100%)" }}>
+      <div className="relative px-6 pt-8 pb-8">
+        <div className="absolute top-0 left-0 right-0 h-full opacity-20 overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full" style={{ background: "radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%)" }} />
+        </div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/30">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#22252A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4" /><path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /><path d="M18 12a2 2 0 0 0 0 4h4v-4z" />
+            </svg>
+          </div>
+          <p className="mt-4 text-xl font-bold text-surface-dark">{label}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
