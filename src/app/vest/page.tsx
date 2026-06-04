@@ -62,6 +62,7 @@ const SCENARIO_DATA = {
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
     tokens: 0,
+    attendance: { total: 0, checkedToday: false, weekDays: [false, false, false, false, false, false, false] as boolean[] },
   },
   active: {
     label: "케이스2: 참여중 유저",
@@ -103,6 +104,7 @@ const SCENARIO_DATA = {
     matchMission: { completed: 1, total: 3 },
     inviter: null,
     tokens: 1200,
+    attendance: { total: 12, checkedToday: true, weekDays: [true, true, false, true, true, false, false] as boolean[] },
   },
   invited: {
     label: "케이스3: 초대받은 유저",
@@ -125,6 +127,7 @@ const SCENARIO_DATA = {
     matchMission: { completed: 0, total: 3 },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
     tokens: 100,
+    attendance: { total: 3, checkedToday: false, weekDays: [true, false, true, false, true, false, false] as boolean[] },
   },
 };
 
@@ -162,7 +165,7 @@ export default function VestPage() {
 
   const packCount = data.packs.length;
   const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: "main", label: "챌린지" },
+    { key: "main", label: "미션" },
     { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
@@ -467,6 +470,9 @@ function MainTab({
 
       {/* Case 2: 매치 참여 마일스톤 */}
       {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
+
+      {/* 출석체크 미션 */}
+      <AttendanceMission attendance={data.attendance} />
 
       {/* 우승국 예측 */}
       <section className="bg-surface-hover px-5 py-10">
@@ -940,6 +946,226 @@ function ProfilePickerModal({
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Attendance Mission ───
+const WEEK_LABELS = ["월", "화", "수", "목", "금", "토", "일"];
+const WC_TOTAL_DAYS = 39; // 6/11 ~ 7/19
+
+// Mock checked dates for demo (scattered across the WC period)
+function getMockCheckedDates(total: number): Set<string> {
+  const dates = new Set<string>();
+  const start = new Date(2026, 5, 11);
+  const pool: string[] = [];
+  for (let d = 0; d < WC_TOTAL_DAYS; d++) {
+    const dt = new Date(start);
+    dt.setDate(dt.getDate() + d);
+    pool.push(`${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}`);
+  }
+  for (let i = 0; i < Math.min(total, pool.length); i++) {
+    dates.add(pool[i]);
+  }
+  return dates;
+}
+
+function AttendanceMission({ attendance }: { attendance: ScenarioData["attendance"] }) {
+  const [justChecked, setJustChecked] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(5); // 0-indexed: 5=June
+  const checked = justChecked || attendance.checkedToday;
+  const totalCount = attendance.total + (justChecked && !attendance.checkedToday ? 1 : 0);
+  const progress = Math.min(totalCount / WC_TOTAL_DAYS, 1);
+  const checkedDates = getMockCheckedDates(totalCount);
+
+  useEffect(() => {
+    if (calendarOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [calendarOpen]);
+
+  const renderMonth = (monthIdx: number) => {
+    const year = 2026;
+    const firstDay = new Date(year, monthIdx, 1).getDay();
+    const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+    const startOffset = firstDay === 0 ? 6 : firstDay - 1;
+    const cells: (number | null)[] = Array(startOffset).fill(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    const wcStart = new Date(2026, 5, 11);
+    const wcEnd = new Date(2026, 6, 19);
+
+    return (
+      <div className="grid grid-cols-7 gap-1">
+        {WEEK_LABELS.map((l) => (
+          <div key={l} className="flex items-center justify-center h-8 text-[11px] font-semibold text-on-surface-variant">{l}</div>
+        ))}
+        {cells.map((day, i) => {
+          if (day === null) return <div key={`e${i}`} className="h-10" />;
+          const dt = new Date(year, monthIdx, day);
+          const key = `${year}-${monthIdx + 1}-${day}`;
+          const isWc = dt >= wcStart && dt <= wcEnd;
+          const isDone = checkedDates.has(key);
+          return (
+            <div key={i} className={`flex items-center justify-center h-10 rounded-full text-sm ${
+              isDone ? "bg-accent-green font-bold text-surface-dark" : isWc ? "text-surface-dark" : "text-on-surface-variant/30"
+            }`}>
+              {isDone ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : day}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  return (
+    <section className="bg-white px-5 py-8 border-b border-gray-100">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-kbl text-surface-dark">출석체크</h2>
+          <p className="mt-1 text-xs text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
+        </div>
+        <div className="text-right">
+          <p className="text-2xl font-russo text-surface-dark">{totalCount}<span className="text-sm font-sans text-on-surface-variant font-normal">/{WC_TOTAL_DAYS}일</span></p>
+        </div>
+      </div>
+
+      {/* Progress Bar */}
+      <div className="mt-4 h-2 rounded-full bg-gray-100 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-accent-green transition-all duration-500"
+          style={{ width: `${progress * 100}%` }}
+        />
+      </div>
+      <div className="mt-1 flex justify-between text-[10px] text-on-surface-variant">
+        <span>6/11 시작</span>
+        <span>7/19 종료</span>
+      </div>
+
+      {/* Weekly Calendar */}
+      <div className="mt-5 flex gap-1.5">
+        {WEEK_LABELS.map((label, i) => {
+          const done = attendance.weekDays[i] || (justChecked && !attendance.checkedToday && i === new Date().getDay() - 1);
+          return (
+            <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-on-surface-variant">{label}</span>
+              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${
+                done ? "bg-accent-green" : "bg-gray-100"
+              }`}>
+                {done ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : (
+                  <span className="text-xs text-on-surface-variant/40">—</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Buttons */}
+      <div className="mt-5 flex gap-2">
+        <button
+          onClick={() => !checked && setJustChecked(true)}
+          disabled={checked}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold transition-all ${
+            checked
+              ? "bg-gray-100 text-on-surface-variant cursor-default"
+              : "bg-surface-dark text-white cursor-pointer active:scale-[0.98]"
+          }`}
+        >
+          {checked ? (
+            <>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              오늘 출석 완료!
+            </>
+          ) : (
+            <>
+              출석체크하기
+              <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px]">
+                <img src="/img/daily_pack.svg" alt="" className="h-3.5 w-3.5" />
+                네이션스팩 1개
+              </span>
+            </>
+          )}
+        </button>
+        <button
+          onClick={() => setCalendarOpen(true)}
+          className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-3.5 text-sm font-bold text-surface-dark cursor-pointer active:scale-[0.98] transition-transform"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Full Calendar Bottom Sheet */}
+      {calendarOpen && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center"
+          onClick={() => setCalendarOpen(false)}
+        >
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div
+            className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white px-6 pt-6 pb-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-kbl text-surface-dark">출석 캘린더</h3>
+              <div className="flex items-center gap-1.5">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-green">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <span className="text-sm font-bold text-surface-dark">{totalCount}일 출석</span>
+              </div>
+            </div>
+
+            {/* Month Tabs */}
+            <div className="mt-4 flex rounded-xl bg-gray-100 p-1">
+              <button
+                onClick={() => setCalendarMonth(5)}
+                className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 5 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}
+              >
+                6월
+              </button>
+              <button
+                onClick={() => setCalendarMonth(6)}
+                className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 6 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}
+              >
+                7월
+              </button>
+            </div>
+
+            <div className="mt-4">
+              {renderMonth(calendarMonth)}
+            </div>
+
+            <button
+              onClick={() => setCalendarOpen(false)}
+              className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
