@@ -76,9 +76,9 @@ const SCENARIO_DATA = {
     ],
     stats: { match: 7, level: 7, sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
-      { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: true },
+      { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: false },
       { id: 2, country: "JPN", imageUrl: "/img/profile_me_japan.png", isActive: false },
-      { id: 3, country: "NED", imageUrl: "/img/profile_me_netherland.png", isActive: false },
+      { id: 3, country: "NED", imageUrl: "/img/profile_me_netherland.png", isActive: true },
       { id: 4, country: "USA", imageUrl: "/img/profile_me_usa.png", isActive: false },
     ],
     profileQuota: { used: 4, total: 5 },
