@@ -506,6 +506,8 @@ function MainTab({
 }) {
   const [predictions, setPredictions] = useState(data.predictions.map(p => ({ ...p })));
   const [pickingSlot, setPickingSlot] = useState<number | null>(null);
+  const [toast, setToast] = useState(false);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setPredictions(data.predictions.map(p => ({ ...p })));
@@ -533,7 +535,7 @@ function MainTab({
     <div className="flex flex-col gap-3 p-4">
       {/* Case 1 & 3: 프로필 만들기 유도 */}
       {!data.hasProfile && (
-        <section className="rounded-2xl bg-accent-green/10 px-5 py-8 border border-accent-green/20">
+        <section className="rounded-2xl bg-gray-50 px-5 py-8">
           <div className="text-center">
             <h2 className="text-lg font-kbl text-surface-dark">
               {scenario === "invited" ? "친구처럼 프로필을 만들어보세요!" : "먼저 프로필을 만들어보세요!"}
@@ -571,7 +573,14 @@ function MainTab({
             return (
               <button
                 key={pred.slot}
-                onClick={() => canTap && setPickingSlot(pred.slot)}
+                onClick={() => {
+                  if (canTap) { setPickingSlot(pred.slot); }
+                  else {
+                    setToast(true);
+                    if (toastTimer.current) clearTimeout(toastTimer.current);
+                    toastTimer.current = setTimeout(() => setToast(false), 2000);
+                  }
+                }}
                 className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 text-left transition-transform ${
                   pred.unlocked && country ? "bg-accent-green" : "bg-surface-gray"
                 } ${canTap ? "cursor-pointer active:scale-95" : ""}`}
@@ -605,6 +614,15 @@ function MainTab({
             );
           })}
         </div>
+
+        {/* Toast */}
+        {toast && (
+          <div className="mt-3 flex justify-center animate-fade-in">
+            <div className="rounded-full bg-surface-dark px-4 py-2 text-xs font-medium text-white shadow-lg">
+              매치에 참여하면 슬롯이 해제돼요
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Vest Picker Modal */}
@@ -1192,7 +1210,7 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
   };
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white px-5 py-6">
+    <section className="rounded-2xl bg-gray-50 px-5 py-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-kbl text-surface-dark">출석체크</h2>
@@ -1349,7 +1367,7 @@ function MatchMission({ completed }: { completed: number }) {
   const selectedReward = rewardModal !== null ? MISSION_REWARDS.find(r => r.match === rewardModal) : null;
 
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white px-5 py-6">
+    <section className="rounded-2xl bg-gray-50 px-5 py-6">
       <h2 className="text-xl font-kbl text-surface-dark">매치데이</h2>
       <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
 
