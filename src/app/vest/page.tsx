@@ -61,6 +61,7 @@ const SCENARIO_DATA = {
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
+    tokens: 0,
   },
   active: {
     label: "케이스2: 참여중 유저",
@@ -101,6 +102,7 @@ const SCENARIO_DATA = {
     hasProfile: true,
     matchMission: { completed: 1, total: 3 },
     inviter: null,
+    tokens: 1200,
   },
   invited: {
     label: "케이스3: 초대받은 유저",
@@ -122,10 +124,11 @@ const SCENARIO_DATA = {
     hasProfile: false,
     matchMission: { completed: 0, total: 3 },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
+    tokens: 100,
   },
 };
 
-type Tab = "main" | "packs" | "friends" | "collection";
+type Tab = "main" | "packs" | "friends" | "collection" | "store";
 
 export default function VestPage() {
   const [scenario, setScenario] = useState<Scenario>("active");
@@ -163,6 +166,7 @@ export default function VestPage() {
     { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
+    { key: "store", label: "스토어" },
   ];
 
   return (
@@ -182,6 +186,14 @@ export default function VestPage() {
         {/* Left: Profile Card (sticky on desktop) */}
         <div className="lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:self-start">
           <section className="relative overflow-hidden rounded-bl-[40px] lg:rounded-bl-none lg:rounded-br-[40px]" style={{ background: "#5fc0e1" }}>
+            {/* Token Badge */}
+            <button
+              onClick={() => setActiveTab("store")}
+              className="absolute top-3 right-4 z-20 flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
+            >
+              <img src="/img/token.svg" alt="token" className="h-5 w-5" draggable={false} />
+              <span className="text-sm font-russo text-accent-green">{data.tokens.toLocaleString()}</span>
+            </button>
             <div className="relative z-10 flex items-center pt-6 pb-0">
               <div className="flex flex-col items-center">
                 <button
@@ -271,6 +283,7 @@ export default function VestPage() {
           {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} />}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
           {activeTab === "collection" && <CollectionTab data={data} />}
+          {activeTab === "store" && <StoreTab data={data} />}
         </div>
       </div>
 
@@ -1314,6 +1327,168 @@ function CollectionTab({ data }: { data: ScenarioData }) {
           <VestCard key={country.code} country={country} owned={data.ownedVests.includes(country.code)} />
         ))}
       </div>
+    </section>
+  );
+}
+
+// ─── Store Tab ───
+const STORE_ITEMS = [
+  {
+    id: 1,
+    name: "WC26 크루삭스",
+    price: 500,
+    cashPrice: "₩5,000",
+    emoji: "🧦",
+    description: "월드컵 에디션 플랩 크루삭스",
+    stock: 120,
+  },
+  {
+    id: 2,
+    name: "매치볼",
+    price: 2000,
+    cashPrice: "₩22,000",
+    emoji: "⚽",
+    description: "WC26 공식 매치볼 레플리카",
+    stock: 50,
+  },
+  {
+    id: 3,
+    name: "WC26 캡",
+    price: 1500,
+    cashPrice: "₩18,000",
+    emoji: "🧢",
+    description: "월드컵 에디션 스냅백 캡",
+    stock: 80,
+  },
+  {
+    id: 4,
+    name: "플랩 토트백",
+    price: 1000,
+    cashPrice: "₩12,000",
+    emoji: "👜",
+    description: "플랩 로고 캔버스 토트백",
+    stock: 200,
+  },
+  {
+    id: 5,
+    name: "WC26 핀 뱃지",
+    price: 300,
+    cashPrice: "₩3,000",
+    emoji: "📌",
+    description: "월드컵 에디션 메탈 핀 뱃지",
+    stock: 300,
+  },
+];
+
+function StoreTab({ data }: { data: ScenarioData }) {
+  const [selectedItem, setSelectedItem] = useState<(typeof STORE_ITEMS)[0] | null>(null);
+
+  useEffect(() => {
+    if (selectedItem) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [selectedItem]);
+
+  return (
+    <section className="bg-white px-5 py-8 overflow-hidden">
+      {/* Token Balance */}
+      <div className="rounded-2xl bg-surface-dark p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/img/token.svg" alt="token" className="h-11 w-11" draggable={false} />
+            <div>
+              <p className="text-xs font-medium text-white/60">보유 토큰</p>
+              <p className="mt-0.5 text-3xl font-russo text-accent-green">{data.tokens.toLocaleString()}</p>
+            </div>
+          </div>
+          <button className="rounded-xl bg-accent-green px-4 py-2.5 text-sm font-bold text-surface-dark">
+            충전하기
+          </button>
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-[11px] text-white/50">
+          <span>💡 리워드팩 오픈 또는 캐시 결제로 토큰을 획득할 수 있어요</span>
+        </div>
+      </div>
+
+      {/* Store Items */}
+      <div className="mt-6">
+        <h2 className="text-xl font-kbl text-surface-dark">굿즈</h2>
+        <p className="mt-1 text-xs text-on-surface-variant">토큰으로 실물 굿즈를 구매하세요</p>
+      </div>
+
+      <div className="mt-5 grid grid-cols-2 gap-3">
+        {STORE_ITEMS.map((item) => {
+          const canAfford = data.tokens >= item.price;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setSelectedItem(item)}
+              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 text-left transition-shadow hover:shadow-md cursor-pointer"
+            >
+              <div className="flex h-16 w-full items-center justify-center text-4xl">
+                {item.emoji}
+              </div>
+              <p className="mt-3 text-sm font-bold text-surface-dark leading-tight">{item.name}</p>
+              <p className="mt-1 text-[11px] text-on-surface-variant leading-snug">{item.description}</p>
+              <div className="mt-3 flex items-center gap-1">
+                <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
+                <span className={`text-sm font-russo ${canAfford ? "text-surface-dark" : "text-on-surface-variant"}`}>
+                  {item.price.toLocaleString()}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-on-surface-variant">또는 {item.cashPrice}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Item Detail Modal */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center"
+          onClick={() => setSelectedItem(null)}
+        >
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div
+            className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white px-6 pt-8 pb-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-6 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+            <div className="flex flex-col items-center">
+              <span className="text-6xl">{selectedItem.emoji}</span>
+              <h3 className="mt-4 text-lg font-bold text-surface-dark">{selectedItem.name}</h3>
+              <p className="mt-1 text-sm text-on-surface-variant">{selectedItem.description}</p>
+              <div className="mt-4 flex items-center gap-2">
+                <img src="/img/token.svg" alt="token" className="h-6 w-6" draggable={false} />
+                <span className="text-2xl font-russo text-surface-dark">{selectedItem.price.toLocaleString()}</span>
+              </div>
+              <p className="mt-1 text-xs text-on-surface-variant">또는 {selectedItem.cashPrice}</p>
+              <p className="mt-2 text-[11px] text-on-surface-variant">남은 수량: {selectedItem.stock}개</p>
+            </div>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-bold text-surface-dark"
+              >
+                닫기
+              </button>
+              {data.tokens >= selectedItem.price ? (
+                <button className="flex-1 rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
+                  토큰으로 구매
+                </button>
+              ) : (
+                <button className="flex-1 rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
+                  캐시로 구매
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
