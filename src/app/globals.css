@@ -101,3 +101,5 @@ button {
 .animate-flash {
   animation: flashBurst 0.5s ease-out forwards;
 }
+
+/* POM card spin — reuses packSpinY keyframe */

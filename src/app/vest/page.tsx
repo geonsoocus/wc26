@@ -84,8 +84,8 @@ const SCENARIO_DATA = {
     ],
     profileQuota: { used: 4, total: 5 },
     predictions: [
-      { slot: 1, country: "CUW", unlocked: true },
-      { slot: 2, country: null, unlocked: false },
+      { slot: 1, country: "KOR", unlocked: true },
+      { slot: 2, country: null, unlocked: true },
       { slot: 3, country: null, unlocked: false },
     ],
     friends: [
@@ -167,6 +167,7 @@ function VestPageInner() {
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
   const [inviteDismissed, setInviteDismissed] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
+  const [pomOpen, setPomOpen] = useState(false);
 
   const data = SCENARIO_DATA[scenario];
 
@@ -333,6 +334,15 @@ function VestPageInner() {
         onClose={() => setProfilePickerOpen(false)}
       />}
 
+      {/* POM Screen */}
+      {pomOpen && (
+        <PomScreen
+          profileImage={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? "/img/profile.png"}
+          country={data.profiles.find(p => p.id === activeProfileId)?.country ?? "NED"}
+          onClose={() => setPomOpen(false)}
+        />
+      )}
+
       {/* Debug FAB */}
       <button
         onClick={() => setDebugOpen(!debugOpen)}
@@ -366,6 +376,16 @@ function VestPageInner() {
                   <div className="text-xs text-on-surface-variant mt-0.5">{val.desc}</div>
                 </button>
               ))}
+            </div>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <h3 className="text-sm font-kbl text-surface-dark mb-2">이벤트</h3>
+              <button
+                onClick={() => { setPomOpen(true); setDebugOpen(false); }}
+                className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left"
+              >
+                <div className="text-sm font-bold text-surface-dark">⚽ POM 획득</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">매치 참여 후 POM 선정 화면</div>
+              </button>
             </div>
           </div>
         </div>
@@ -477,12 +497,36 @@ function MainTab({
   scenario: Scenario;
   onOpenProfilePicker: () => void;
 }) {
+  const [predictions, setPredictions] = useState(data.predictions.map(p => ({ ...p })));
+  const [pickingSlot, setPickingSlot] = useState<number | null>(null);
+
+  useEffect(() => {
+    setPredictions(data.predictions.map(p => ({ ...p })));
+  }, [data]);
+
+  useEffect(() => {
+    if (pickingSlot !== null) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [pickingSlot]);
+
+  const alreadyPicked = predictions.filter(p => p.country).map(p => p.country!);
+  const ownedCountries = COUNTRIES.filter(c => data.ownedVests.includes(c.code));
+
+  const handleSelect = (code: string) => {
+    if (pickingSlot === null) return;
+    setPredictions(prev => prev.map(p => p.slot === pickingSlot ? { ...p, country: code } : p));
+    setPickingSlot(null);
+  };
 
   return (
-    <>
+    <div className="flex flex-col gap-3 p-4">
       {/* Case 1 & 3: 프로필 만들기 유도 */}
       {!data.hasProfile && (
-        <section className="bg-accent-green/10 px-5 py-8 border-b border-accent-green/20">
+        <section className="rounded-2xl bg-accent-green/10 px-5 py-8 border border-accent-green/20">
           <div className="text-center">
             <h2 className="text-lg font-kbl text-surface-dark">
               {scenario === "invited" ? "친구처럼 프로필을 만들어보세요!" : "먼저 프로필을 만들어보세요!"}
@@ -510,31 +554,102 @@ function MainTab({
       <AttendanceMission attendance={data.attendance} />
 
       {/* 우승국 예측 */}
-      <section className="bg-surface-hover px-5 py-10">
+      <section className="rounded-2xl bg-gray-50 px-5 py-8">
         <h2 className="text-xl font-kbl text-surface-dark">우승국 예측</h2>
         <p className="mt-1 text-sm font-medium text-black">획득한 조끼로 우승국을 예측해보세요!</p>
         <div className="mt-6 flex gap-2">
-          {data.predictions.map((pred) => {
+          {predictions.map((pred) => {
             const country = pred.country ? COUNTRIES.find((c) => c.code === pred.country) : null;
+            const canTap = pred.unlocked;
             return (
-              <div key={pred.slot} className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 ${pred.unlocked ? "bg-accent-green" : "bg-surface-gray pt-6"}`}>
-                {pred.unlocked && country && (
-                  <div className="flex items-center gap-1 px-2">
-                    <TwemojiFlag emoji={country.flag} size={16} />
-                    <span className="text-xs font-semibold text-surface-dark tracking-tight">{country.nameKo}</span>
-                  </div>
-                )}
+              <button
+                key={pred.slot}
+                onClick={() => canTap && setPickingSlot(pred.slot)}
+                className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 text-left transition-transform ${
+                  pred.unlocked && country ? "bg-accent-green" : "bg-surface-gray"
+                } ${canTap ? "cursor-pointer active:scale-95" : ""}`}
+              >
+                <div className="flex items-center gap-1 px-2 h-6">
+                  {pred.unlocked && country ? (
+                    <>
+                      <TwemojiFlag emoji={country.flag} size={16} />
+                      <span className="text-xs font-semibold text-surface-dark tracking-tight">{country.nameKo}</span>
+                    </>
+                  ) : pred.unlocked ? (
+                    <span className="text-xs font-semibold text-accent-green tracking-tight">선택하기</span>
+                  ) : (
+                    <span className="text-xs font-semibold text-on-surface-variant/50 tracking-tight">잠김</span>
+                  )}
+                </div>
                 <div className="flex h-[120px] items-center justify-center rounded-2xl bg-surface-dark px-4 py-5">
-                  {pred.unlocked && country ? <TwemojiFlag emoji={country.flag} size={48} /> : (
+                  {pred.unlocked && country ? (
+                    country.bibImage
+                      ? <img src={country.bibImage} alt={country.nameKo} className="h-full object-contain" draggable={false} />
+                      : <TwemojiFlag emoji={country.flag} size={48} />
+                  ) : pred.unlocked ? (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#96ff62" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
+                  ) : (
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </section>
-    </>
+
+      {/* Vest Picker Modal */}
+      {pickingSlot !== null && (
+        <div
+          className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center"
+          onClick={() => setPickingSlot(null)}
+        >
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div
+            className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white px-6 pt-6 pb-10 max-h-[70vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-kbl text-surface-dark">우승국 선택</h3>
+              <button onClick={() => setPickingSlot(null)} className="text-sm text-on-surface-variant">닫기</button>
+            </div>
+            {ownedCountries.length === 0 ? (
+              <div className="py-10 text-center">
+                <p className="text-sm font-bold text-surface-dark">보유한 조끼가 없어요</p>
+                <p className="mt-1 text-xs text-on-surface-variant">팩을 열어서 조끼를 획득해보세요</p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto flex-1 -mx-1">
+                <div className="grid grid-cols-4 gap-2 px-1">
+                  {ownedCountries.map((c) => {
+                    const used = alreadyPicked.includes(c.code);
+                    return (
+                      <button
+                        key={c.code}
+                        disabled={used}
+                        onClick={() => handleSelect(c.code)}
+                        className={`flex flex-col items-center gap-1.5 rounded-xl p-2 transition-all ${
+                          used ? "opacity-30 cursor-default" : "cursor-pointer active:scale-95 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-green/20">
+                          <TwemojiFlag emoji={c.flag} size={28} />
+                        </div>
+                        <span className="text-[11px] font-semibold text-surface-dark text-center leading-tight">{c.nameKo}</span>
+                        {used && <span className="text-[9px] text-on-surface-variant">선택됨</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1062,7 +1177,7 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
   };
 
   return (
-    <section className="bg-white px-5 py-8 border-b border-gray-100">
+    <section className="rounded-2xl border border-gray-100 bg-white px-5 py-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-kbl text-surface-dark">출석체크</h2>
@@ -1071,18 +1186,6 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
         <div className="text-right">
           <p className="text-2xl font-russo text-surface-dark">{totalCount}<span className="text-sm font-sans text-on-surface-variant font-normal">/{WC_TOTAL_DAYS}일</span></p>
         </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mt-4 h-2 rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className="h-full rounded-full bg-accent-green transition-all duration-500"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
-      <div className="mt-1 flex justify-between text-[10px] text-on-surface-variant">
-        <span>6/11 시작</span>
-        <span>7/19 종료</span>
       </div>
 
       {/* Weekly Calendar */}
@@ -1231,8 +1334,8 @@ function MatchMission({ completed }: { completed: number }) {
   const selectedReward = rewardModal !== null ? MISSION_REWARDS.find(r => r.match === rewardModal) : null;
 
   return (
-    <section className="bg-white px-5 py-8 border-t border-gray-100">
-      <h2 className="text-xl font-kbl text-surface-dark">매치데이 미션</h2>
+    <section className="rounded-2xl border border-gray-100 bg-white px-5 py-6">
+      <h2 className="text-xl font-kbl text-surface-dark">매치데이</h2>
       <p className="mt-1 text-xs text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
 
       <div className="mt-5 relative">
@@ -1751,6 +1854,171 @@ function StoreTab({ data }: { data: ScenarioData }) {
         </div>
       )}
     </section>
+  );
+}
+
+// ─── POM Screen ───
+function PomScreen({ profileImage, country, onClose }: { profileImage: string; country: string; onClose: () => void }) {
+  const countryData = COUNTRIES.find(c => c.code === country);
+  const [phase, setPhase] = useState<"spin" | "flash" | "reveal">("spin");
+  const [rotation, setRotation] = useState(0);
+  const rotationRef = useRef(0);
+  const speedRef = useRef(0);
+  const confettiCanvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  // Accelerate → decelerate spin, then flash → reveal
+  useEffect(() => {
+    if (phase !== "spin") return;
+    const startTime = performance.now();
+    const totalDuration = 2000;
+    let raf: number;
+
+    const animate = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / totalDuration, 1);
+
+      // Ease: accelerate first half, decelerate second half
+      if (t < 0.4) {
+        speedRef.current = (t / 0.4) * 35;
+      } else {
+        speedRef.current = 35 * (1 - ((t - 0.4) / 0.6));
+      }
+
+      rotationRef.current += speedRef.current;
+      setRotation(rotationRef.current);
+
+      if (t < 1) {
+        raf = requestAnimationFrame(animate);
+      } else {
+        const snapped = Math.round(rotationRef.current / 360) * 360;
+        rotationRef.current = snapped;
+        setRotation(snapped);
+        setPhase("flash");
+        setTimeout(() => setPhase("reveal"), 400);
+      }
+    };
+
+    raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [phase]);
+
+  // Fire confetti when reveal
+  useEffect(() => {
+    if (phase !== "reveal") return;
+    import("canvas-confetti").then((mod) => {
+      const confetti = mod.default;
+      const canvas = confettiCanvasRef.current;
+      if (!canvas) return;
+      const myConfetti = confetti.create(canvas, { resize: true, useWorker: true });
+      const colors = ["#e0ff47", "#ffcf0a", "#1570ff", "#96ff62", "#ff6b6b", "#a855f7", "#f97316", "#5fc0e1"];
+
+      myConfetti({ particleCount: 120, spread: 100, origin: { x: 0.5, y: 0.45 }, colors, ticks: 300, gravity: 0.8, scalar: 1.3, shapes: ["square", "circle"] });
+
+      let count = 0;
+      const interval = setInterval(() => {
+        count++;
+        if (count > 6) { clearInterval(interval); return; }
+        myConfetti({ particleCount: 20, angle: 60, spread: 50, origin: { x: 0, y: 0.55 }, colors, ticks: 250, gravity: 1, scalar: 1.1, shapes: ["square", "circle"], drift: 0.5 });
+        myConfetti({ particleCount: 20, angle: 120, spread: 50, origin: { x: 1, y: 0.55 }, colors, ticks: 250, gravity: 1, scalar: 1.1, shapes: ["square", "circle"], drift: -0.5 });
+      }, 200);
+
+      return () => clearInterval(interval);
+    });
+  }, [phase]);
+
+  return (
+    <div className="fixed inset-0 z-[80] flex flex-col items-center" style={{ background: "#e0ff47" }}>
+      {/* Confetti canvas */}
+      <canvas ref={confettiCanvasRef} className="fixed inset-0 pointer-events-none z-[81]" style={{ width: "100vw", height: "100vh" }} />
+
+      {/* Diagonal pattern background */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-15">
+        {Array.from({ length: 20 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute h-[200%] w-[40px] bg-[#c8e600] origin-center"
+            style={{ left: `${i * 60 - 200}px`, top: "-50%", transform: "rotate(30deg)" }}
+          />
+        ))}
+      </div>
+
+      {/* Flash */}
+      {phase === "flash" && (
+        <div className="fixed inset-0 z-[82] bg-white animate-flash pointer-events-none" />
+      )}
+
+      {/* POM Card with spin */}
+      <div className="relative mt-16 mx-6 w-[calc(100%-48px)] max-w-[340px]" style={{ perspective: "800px" }}>
+        <div
+          className="w-full overflow-hidden rounded-bl-[40px] rounded-tr-[80px]"
+          style={{
+            transform: `rotateY(${rotation}deg)`,
+            transformStyle: "preserve-3d",
+          }}
+        >
+          {/* Yellow top bar */}
+          <div className="h-[72px] bg-[#ffcf0a] flex items-end px-6 pb-2">
+            <span className="text-[72px] font-kbl leading-none text-surface-dark tracking-tight" style={{ lineHeight: "0.85" }}>POM</span>
+          </div>
+
+          {/* Profile image area */}
+          <div className="relative bg-[#5fc0e1]" style={{ paddingBottom: "110%" }}>
+            <img
+              src={profileImage}
+              alt="POM Player"
+              className="absolute inset-0 w-full h-full object-cover object-top"
+              draggable={false}
+            />
+
+            {/* Country flag + symbol badge */}
+            <div className="absolute right-0 bottom-[52px] flex flex-col items-center">
+              <div className="flex items-center justify-center w-[56px] h-[56px] bg-surface-dark">
+                {countryData && <TwemojiFlag emoji={countryData.flag} size={36} />}
+              </div>
+              <div className="flex items-center justify-center w-[56px] bg-white p-2">
+                <img src="/img/symbol.svg" alt="WC26" className="w-10 h-auto" />
+              </div>
+            </div>
+          </div>
+
+          {/* Blue bottom bar */}
+          <div className="bg-accent-blue px-5 py-3 flex items-center justify-center">
+            <span className="text-[20px] font-kbl text-surface-dark tracking-wide">PLABER OF THE MATCH</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Message (fade in after reveal) */}
+      <div
+        className="mt-8 text-center px-6 transition-opacity duration-500"
+        style={{ opacity: phase === "reveal" ? 1 : 0 }}
+      >
+        <p className="text-lg font-bold text-surface-dark leading-relaxed">
+          최고의 매너로<br />모두 함께 즐길 수 있었어요
+        </p>
+      </div>
+
+      {/* Buttons (fade in after reveal) */}
+      <div
+        className="mt-auto mb-10 w-full px-6 max-w-[340px] flex flex-col gap-3 transition-opacity duration-500"
+        style={{ opacity: phase === "reveal" ? 1 : 0 }}
+      >
+        <button className="w-full rounded-xl bg-surface-dark py-4 text-sm font-bold text-white">
+          공유하기
+        </button>
+        <button
+          onClick={onClose}
+          className="w-full rounded-xl py-3 text-sm font-bold text-surface-dark"
+        >
+          닫기
+        </button>
+      </div>
+    </div>
   );
 }
 
