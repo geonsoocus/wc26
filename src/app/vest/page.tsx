@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
 
@@ -132,11 +133,35 @@ const SCENARIO_DATA = {
 };
 
 type Tab = "main" | "packs" | "friends" | "collection" | "store";
+const VALID_TABS: Tab[] = ["main", "friends", "collection", "store", "packs"];
 
 export default function VestPage() {
+  return (
+    <Suspense>
+      <VestPageInner />
+    </Suspense>
+  );
+}
+
+function VestPageInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const tabParam = searchParams.get("tab") ?? "main";
+  const activeTab: Tab = VALID_TABS.includes(tabParam as Tab) ? (tabParam as Tab) : "main";
+
+  const setActiveTab = (tab: Tab) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === "main") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+    const qs = params.toString();
+    router.push(`/vest${qs ? `?${qs}` : ""}`, { scroll: false });
+  };
+
   const [scenario, setScenario] = useState<Scenario>("active");
   const [debugOpen, setDebugOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("main");
   const [openedPack, setOpenedPack] = useState<Pack | null>(null);
   const [packPhase, setPackPhase] = useState<"hold" | "flash" | "reveal">("hold");
   const [welcomeDismissed, setWelcomeDismissed] = useState(false);
@@ -155,6 +180,7 @@ export default function VestPage() {
     setInviteDismissed(false);
     setProfilePickerOpen(false);
     setActiveProfileId(SCENARIO_DATA[scenario].profiles.find(p => p.isActive)?.id ?? 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario]);
 
   useEffect(() => {
@@ -166,7 +192,6 @@ export default function VestPage() {
   const packCount = data.packs.length;
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: "main", label: "미션" },
-    { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
     { key: "store", label: "스토어" },
@@ -189,14 +214,23 @@ export default function VestPage() {
         {/* Left: Profile Card (sticky on desktop) */}
         <div className="lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:self-start">
           <section className="relative overflow-hidden rounded-bl-[40px] lg:rounded-bl-none lg:rounded-br-[40px]" style={{ background: "#5fc0e1" }}>
-            {/* Token Badge */}
-            <button
-              onClick={() => setActiveTab("store")}
-              className="absolute top-3 right-4 z-20 flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
-            >
-              <img src="/img/token.svg" alt="token" className="h-5 w-5" draggable={false} />
-              <span className="text-sm font-russo text-accent-green">{data.tokens.toLocaleString()}</span>
-            </button>
+            {/* Top Badges */}
+            <div className="absolute top-3 right-4 z-20 flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab("packs")}
+                className="flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
+              >
+                <img src="/img/daily_pack.svg" alt="pack" className="h-5 w-5" draggable={false} />
+                <span className="text-sm font-russo text-white">{packCount}</span>
+              </button>
+              <button
+                onClick={() => setActiveTab("store")}
+                className="flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
+              >
+                <img src="/img/token.svg" alt="token" className="h-5 w-5" draggable={false} />
+                <span className="text-sm font-russo text-accent-green">{data.tokens.toLocaleString()}</span>
+              </button>
+            </div>
             <div className="relative z-10 flex items-center pt-6 pb-0">
               <div className="flex flex-col items-center">
                 <button
@@ -251,11 +285,12 @@ export default function VestPage() {
         {/* Right: Tabs + Content */}
         <div className="flex-1 min-w-0">
           {/* Tabs */}
-          <div className="flex border-b border-gray-200 bg-white sticky top-0 z-50">
+          <nav className="flex border-b border-gray-200 bg-white sticky top-0 z-50">
             {TABS.map((tab) => (
-              <button
+              <a
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                href={tab.key === "main" ? "/vest" : `/vest?tab=${tab.key}`}
+                onClick={(e) => { e.preventDefault(); setActiveTab(tab.key); }}
                 className={`flex-1 py-4 text-sm font-kbl text-center transition-colors relative cursor-pointer ${
                   activeTab === tab.key ? "text-surface-dark" : "text-on-surface-variant"
                 }`}
@@ -271,9 +306,9 @@ export default function VestPage() {
                 {activeTab === tab.key && (
                   <div className="absolute bottom-0 left-1/2 -translate-x-1/2 h-[3px] w-10 rounded-full bg-surface-dark" />
                 )}
-              </button>
+              </a>
             ))}
-          </div>
+          </nav>
 
           {/* Tab Content */}
           {activeTab === "main" && (
