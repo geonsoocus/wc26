@@ -1458,7 +1458,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
             <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
             <div className="flex flex-col items-center">
               {/* Profile Card */}
-              <div className="w-[65vw] max-w-[260px] overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border border-gray-100">
+              <div className="w-[65vw] max-w-[260px] overflow-hidden rounded-tr-[20px] border border-gray-100">
                 <div className="relative w-full" style={{ background: selectedCountry.primary, paddingBottom: "150%" }}>
                   <div className="absolute inset-0 flex items-center justify-center">
                     {selectedFriend.imageUrl ? (
@@ -1469,12 +1469,9 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                       </div>
                     )}
                   </div>
-                  <div className="absolute bottom-0 left-0 flex flex-col">
+                  <div className="absolute bottom-0 left-0">
                     <div className="flex items-center justify-center w-8 h-8 bg-surface-dark">
                       <TwemojiFlag emoji={selectedCountry.flag} size={22} />
-                    </div>
-                    <div className="flex items-center justify-center w-8 bg-white p-1">
-                      <img src="/img/symbol.svg" alt="WC26" className="w-5 h-auto" />
                     </div>
                   </div>
                 </div>
@@ -1574,7 +1571,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                 {withProfile.map((friend) => {
                   const country = COUNTRIES.find((c) => c.code === friend.country)!;
                   return (
-                    <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] text-left transition-transform active:scale-95">
+                    <button key={friend.name} onClick={() => setSelectedFriend(friend)} className="overflow-hidden rounded-tr-[20px] text-left transition-transform active:scale-95">
                       <div className="relative w-full" style={{ background: country.primary, paddingBottom: "150%" }}>
                         <div className="absolute inset-0 flex items-center justify-center">
                           {friend.imageUrl ? (
@@ -1585,12 +1582,9 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                             </div>
                           )}
                         </div>
-                        <div className="absolute bottom-0 left-0 flex flex-col">
+                        <div className="absolute bottom-0 left-0">
                           <div className="flex items-center justify-center w-6 h-6 bg-surface-dark">
                             <TwemojiFlag emoji={country.flag} size={18} />
-                          </div>
-                          <div className="flex items-center justify-center w-6 bg-white p-0.5">
-                            <img src="/img/symbol.svg" alt="WC26" className="w-4 h-auto" />
                           </div>
                         </div>
                       </div>
@@ -1598,7 +1592,7 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
                   );
                 })}
                 <div className="relative" style={{ paddingBottom: "150%" }}>
-                  <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
+                  <button className="absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-tr-[20px] border-2 border-dashed border-gray-200 text-on-surface-variant hover:border-accent-green hover:text-accent-green">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-current text-lg">+</div>
                     <span className="text-[10px] font-medium">친구 초대</span>
                   </button>
