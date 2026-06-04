@@ -13,7 +13,7 @@ interface Pack {
   type: PackType;
   label: string;
   image: string;
-  // Mock reward for demo
+  guaranteedCountry?: string;
   mockReward: NationsReward | RewardPackReward;
 }
 
@@ -47,9 +47,9 @@ const SCENARIO_DATA = {
     desc: "이벤트를 처음 발견한 유저",
     ownedVests: [] as string[],
     packs: [
-      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "KOR" } },
+      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "KOR", mockReward: { kind: "nations" as const, country: "KOR" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
-    ],
+    ] as Pack[],
     stats: { match: 0, level: 1, sentPraise: 0, receivedPraise: 0, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
@@ -70,11 +70,11 @@ const SCENARIO_DATA = {
     desc: "프로필 생성 완료, 매치 참여 중",
     ownedVests: ["KOR", "BRA", "FRA", "MEX", "GER"],
     packs: [
-      { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "GER" } },
+      { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "GER", mockReward: { kind: "nations" as const, country: "GER" } },
       { id: 2, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "JPN" } },
       { id: 3, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "5,000원 할인 쿠폰" } },
       { id: 4, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "무료 참가 쿠폰" } },
-    ],
+    ] as Pack[],
     stats: { match: 7, level: 7, sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
       { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: false },
@@ -112,9 +112,9 @@ const SCENARIO_DATA = {
     desc: "친구의 공유 링크로 접근",
     ownedVests: [] as string[],
     packs: [
-      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "BRA" } },
+      { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "BRA", mockReward: { kind: "nations" as const, country: "BRA" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
-    ],
+    ] as Pack[],
     stats: { match: 2, level: 3, sentPraise: 5, receivedPraise: 8, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
@@ -386,6 +386,13 @@ function VestPageInner() {
                 <div className="text-sm font-bold text-surface-dark">⚽ POM 획득</div>
                 <div className="text-xs text-on-surface-variant mt-0.5">매치 참여 후 POM 선정 화면</div>
               </button>
+              <a
+                href="/match"
+                className="block w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left"
+              >
+                <div className="text-sm font-bold text-surface-dark">📋 매치 상세</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">매치 디테일 페이지 (WC26 리워드 + 프로필)</div>
+              </a>
             </div>
           </div>
         </div>
@@ -925,12 +932,20 @@ function PacksTab({
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-4 gap-3">
-          {data.packs.map((pack) => (
-            <button key={pack.id} onClick={() => setOpenedPack(pack)} className="transition-transform active:scale-95">
-              <img src={pack.image} alt={pack.label} className="w-full h-auto" draggable={false} />
-              <div className="mt-1 text-[10px] font-semibold text-on-surface-variant text-center">{pack.label}</div>
-            </button>
-          ))}
+          {data.packs.map((pack) => {
+            const gc = pack.guaranteedCountry ? COUNTRIES.find(c => c.code === pack.guaranteedCountry) : null;
+            return (
+              <button key={pack.id} onClick={() => setOpenedPack(pack)} className="relative transition-transform active:scale-95">
+                {gc && (
+                  <div className="absolute top-0 left-0 z-10 w-5 h-5 rounded-full bg-white shadow-sm flex items-center justify-center">
+                    <TwemojiFlag emoji={gc.flag} size={14} />
+                  </div>
+                )}
+                <img src={pack.image} alt={pack.label} className="w-full h-auto" draggable={false} />
+                <div className="mt-1 text-[10px] font-semibold text-on-surface-variant text-center">{pack.label}</div>
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -1695,7 +1710,6 @@ const STORE_ITEMS = [
     id: 1,
     name: "WC26 크루삭스",
     price: 500,
-    cashPrice: "₩5,000",
     emoji: "🧦",
     description: "월드컵 에디션 플랩 크루삭스",
     stock: 120,
@@ -1704,7 +1718,6 @@ const STORE_ITEMS = [
     id: 2,
     name: "매치볼",
     price: 2000,
-    cashPrice: "₩22,000",
     emoji: "⚽",
     description: "WC26 공식 매치볼 레플리카",
     stock: 50,
@@ -1713,7 +1726,6 @@ const STORE_ITEMS = [
     id: 3,
     name: "WC26 캡",
     price: 1500,
-    cashPrice: "₩18,000",
     emoji: "🧢",
     description: "월드컵 에디션 스냅백 캡",
     stock: 80,
@@ -1722,7 +1734,6 @@ const STORE_ITEMS = [
     id: 4,
     name: "플랩 토트백",
     price: 1000,
-    cashPrice: "₩12,000",
     emoji: "👜",
     description: "플랩 로고 캔버스 토트백",
     stock: 200,
@@ -1731,7 +1742,6 @@ const STORE_ITEMS = [
     id: 5,
     name: "WC26 핀 뱃지",
     price: 300,
-    cashPrice: "₩3,000",
     emoji: "📌",
     description: "월드컵 에디션 메탈 핀 뱃지",
     stock: 300,
@@ -1767,7 +1777,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
           </button>
         </div>
         <div className="mt-3 flex items-center gap-2 text-[11px] text-white/50">
-          <span>💡 리워드팩 오픈 또는 캐시 결제로 토큰을 획득할 수 있어요</span>
+          <span>💡 리워드팩 오픈으로 토큰을 획득할 수 있어요</span>
         </div>
       </div>
 
@@ -1797,7 +1807,6 @@ function StoreTab({ data }: { data: ScenarioData }) {
                   {item.price.toLocaleString()}
                 </span>
               </div>
-              <p className="mt-0.5 text-[10px] text-on-surface-variant">또는 {item.cashPrice}</p>
             </button>
           );
         })}
@@ -1823,7 +1832,6 @@ function StoreTab({ data }: { data: ScenarioData }) {
                 <img src="/img/token.svg" alt="token" className="h-6 w-6" draggable={false} />
                 <span className="text-2xl font-russo text-surface-dark">{selectedItem.price.toLocaleString()}</span>
               </div>
-              <p className="mt-1 text-xs text-on-surface-variant">또는 {selectedItem.cashPrice}</p>
               <p className="mt-2 text-[11px] text-on-surface-variant">남은 수량: {selectedItem.stock}개</p>
             </div>
 
@@ -1834,15 +1842,12 @@ function StoreTab({ data }: { data: ScenarioData }) {
               >
                 닫기
               </button>
-              {data.tokens >= selectedItem.price ? (
-                <button className="flex-1 rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
-                  토큰으로 구매
-                </button>
-              ) : (
-                <button className="flex-1 rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
-                  캐시로 구매
-                </button>
-              )}
+              <button
+                className={`flex-1 rounded-xl py-3 text-sm font-bold text-white ${data.tokens >= selectedItem.price ? "bg-accent-blue" : "bg-gray-300 cursor-default"}`}
+                disabled={data.tokens < selectedItem.price}
+              >
+                {data.tokens >= selectedItem.price ? "구매하기" : "토큰 부족"}
+              </button>
             </div>
           </div>
         </div>
