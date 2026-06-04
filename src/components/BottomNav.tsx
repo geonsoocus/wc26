@@ -12,7 +12,7 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  if (pathname.startsWith("/vest")) return null;
+  if (pathname.startsWith("/vest") || pathname.startsWith("/profile/create") || pathname.startsWith("/match") || pathname.startsWith("/locker")) return null;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-md">

@@ -172,6 +172,7 @@ function VestPageInner() {
   const [inviteDismissed, setInviteDismissed] = useState(false);
   const [profilePickerOpen, setProfilePickerOpen] = useState(false);
   const [pomOpen, setPomOpen] = useState(false);
+  const [showIntro, setShowIntro] = useState(!SCENARIO_DATA[scenario].hasProfile);
 
   const data = SCENARIO_DATA[scenario];
 
@@ -184,6 +185,7 @@ function VestPageInner() {
     setWelcomeDismissed(false);
     setInviteDismissed(false);
     setProfilePickerOpen(false);
+    setShowIntro(!SCENARIO_DATA[scenario].hasProfile);
     setActiveProfileId(SCENARIO_DATA[scenario].profiles.find(p => p.isActive)?.id ?? 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario]);
@@ -199,8 +201,52 @@ function VestPageInner() {
     { key: "main", label: "미션" },
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
+    { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
     { key: "store", label: "스토어" },
   ];
+
+  if (showIntro) {
+    return (
+      <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col">
+        <ProfileIntroScreen onStart={() => setShowIntro(false)} />
+
+        {/* Debug FAB */}
+        <button
+          onClick={() => setDebugOpen(!debugOpen)}
+          className="fixed bottom-5 right-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-dark text-white shadow-lg active:scale-95"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
+          </svg>
+        </button>
+
+        {debugOpen && (
+          <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
+            <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-surface-dark">시나리오 선택</h3>
+                <button onClick={() => setDebugOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
+              </div>
+              <div className="space-y-2">
+                {(Object.entries(SCENARIO_DATA) as [Scenario, typeof SCENARIO_DATA.new][]).map(([key, val]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setScenario(key); setDebugOpen(false); }}
+                    className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
+                      scenario === key ? "border-accent-green bg-accent-green/5" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <div className="text-sm font-bold text-surface-dark">{val.label}</div>
+                    <div className="text-xs text-on-surface-variant mt-0.5">{val.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-[1024px] mx-auto pb-0">
@@ -209,33 +255,20 @@ function VestPageInner() {
         <InviteBanner inviter={data.inviter!} onDismiss={() => setInviteDismissed(true)} />
       )}
 
-      {/* Welcome Modal (Case 1 & 3) */}
-      {!data.hasProfile && !welcomeDismissed && !data.inviter && (
-        <WelcomeOverlay onDismiss={() => setWelcomeDismissed(true)} />
-      )}
 
       {/* 2-column layout on lg, single column on mobile */}
       <div className="flex flex-col lg:flex-row lg:items-start">
         {/* Left: Profile Card (sticky on desktop) */}
         <div className="lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-0 lg:self-start">
           <section className="relative overflow-hidden rounded-bl-[40px] lg:rounded-bl-none lg:rounded-br-[40px]" style={{ background: "#5fc0e1" }}>
-            {/* Top Badges */}
-            <div className="absolute top-3 right-4 z-20 flex items-center gap-2">
-              <button
-                onClick={() => setActiveTab("packs")}
-                className="flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
-              >
-                <img src="/img/daily_pack.svg" alt="pack" className="h-5 w-5" draggable={false} />
-                <span className="text-sm font-russo text-white">{packCount}</span>
-              </button>
-              <button
-                onClick={() => setActiveTab("store")}
-                className="flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
-              >
-                <img src="/img/token.svg" alt="token" className="h-5 w-5" draggable={false} />
-                <span className="text-sm font-russo text-accent-green">{data.tokens.toLocaleString()}</span>
-              </button>
-            </div>
+            {/* Token Badge */}
+            <button
+              onClick={() => setActiveTab("store")}
+              className="absolute top-3 right-4 z-20 flex items-center gap-1.5 rounded-full bg-surface-dark/80 backdrop-blur-sm pl-1.5 pr-3 py-1.5 cursor-pointer active:scale-95 transition-transform"
+            >
+              <img src="/img/token.svg" alt="token" className="h-5 w-5" draggable={false} />
+              <span className="text-sm font-russo text-accent-green">{data.tokens.toLocaleString()}</span>
+            </button>
             <div className="relative z-10 flex items-center pt-6 pb-0">
               <div className="flex flex-col items-center">
                 <button
@@ -408,6 +441,61 @@ function VestPageInner() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Profile Intro Screen ───
+function ProfileIntroScreen({ onStart }: { onStart: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-8">
+      <div style={{ perspective: "600px" }}>
+        <img
+          src="/img/symbol.svg"
+          alt="WC26"
+          className="w-20 h-auto"
+          style={{ animation: "globeSpin 6s linear infinite", transformStyle: "preserve-3d" }}
+        />
+      </div>
+
+      <h1 className="mt-5 text-3xl font-kbl text-surface-dark">플랩 월드</h1>
+      <p className="mt-2 text-sm text-on-surface-variant text-center leading-relaxed">
+        AI가 월드컵 국가대표 스타일로<br />나만의 프로필을 만들어드려요
+      </p>
+
+      <div className="mt-8 flex items-end justify-center gap-3">
+        <div className="w-[100px] overflow-hidden rounded-tr-[30px] shadow-lg -rotate-6 translate-y-2">
+          <div className="relative bg-[#006847]" style={{ paddingBottom: "130%" }}>
+            <img src="/img/profile_me_brazil.png" alt="sample" className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} />
+          </div>
+          <div className="bg-accent-blue py-1.5 text-center">
+            <span className="text-[8px] font-bold text-white">🇧🇷 브라질</span>
+          </div>
+        </div>
+        <div className="w-[120px] overflow-hidden rounded-tr-[36px] shadow-xl z-10">
+          <div className="relative bg-[#ff6600]" style={{ paddingBottom: "130%" }}>
+            <img src="/img/profile_me_netherland.png" alt="sample" className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} />
+          </div>
+          <div className="bg-accent-blue py-1.5 text-center">
+            <span className="text-[8px] font-bold text-white">🇳🇱 네덜란드</span>
+          </div>
+        </div>
+        <div className="w-[100px] overflow-hidden rounded-tr-[30px] shadow-lg rotate-6 translate-y-2">
+          <div className="relative bg-[#bc002d]" style={{ paddingBottom: "130%" }}>
+            <img src="/img/profile_me_japan.png" alt="sample" className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} />
+          </div>
+          <div className="bg-accent-blue py-1.5 text-center">
+            <span className="text-[8px] font-bold text-white">🇯🇵 일본</span>
+          </div>
+        </div>
+      </div>
+
+      <a
+        href="/profile/create?mode=first"
+        className="mt-10 w-full max-w-[320px] rounded-xl bg-accent-green py-4 text-base font-bold text-surface-dark text-center block"
+      >
+        시작하기
+      </a>
     </div>
   );
 }
@@ -1005,9 +1093,7 @@ function PacksTab({
   );
 }
 
-// ─── Profile Picker Modal ───
-type ProfileGenStep = "idle" | "selectCountry" | "uploadPhoto" | "generating" | "done";
-
+// ─── Profile Picker Modal (Bottom Sheet) ───
 function ProfilePickerModal({
   data,
   activeProfileId,
@@ -1019,10 +1105,6 @@ function ProfilePickerModal({
   onSelect: (id: number) => void;
   onClose: () => void;
 }) {
-  const [genStep, setGenStep] = useState<ProfileGenStep>("idle");
-  const [genCountry, setGenCountry] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const genCountryData = genCountry ? COUNTRIES.find((c) => c.code === genCountry) : null;
   const remaining = data.profileQuota.total - data.profileQuota.used;
 
   useEffect(() => {
@@ -1030,135 +1112,56 @@ function ProfilePickerModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  useEffect(() => {
-    if (genStep === "generating") {
-      const timer = setTimeout(() => setGenStep("done"), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [genStep]);
+  if (data.profiles.length === 0) {
+    if (typeof window !== "undefined") window.location.href = "/profile/create";
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
+    <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+      <div className="relative w-full max-w-lg rounded-t-3xl lg:rounded-3xl bg-white px-5 pt-6 pb-10 max-h-[70vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
 
-        {genStep === "idle" && (
-          <>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-surface-dark">내 프로필</h3>
-              <div className="flex items-center gap-1 rounded-full bg-surface-hover px-2.5 py-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1570ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                </svg>
-                <span className="text-[10px] font-bold text-accent-blue">{remaining}회 남음</span>
-              </div>
-            </div>
-
-            {data.profiles.length > 0 && (
-              <div className="grid grid-cols-4 gap-3">
-                {data.profiles.map((profile) => {
-                  const country = COUNTRIES.find((c) => c.code === profile.country)!;
-                  const isSelected = profile.id === activeProfileId;
-                  return (
-                    <button
-                      key={profile.id}
-                      onClick={() => onSelect(profile.id)}
-                      className="flex flex-col items-center gap-1"
-                    >
-                      <div className={`relative w-full rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 transition-all ${
-                        isSelected ? "border-accent-green shadow-md" : "border-transparent"
-                      }`} style={{ paddingBottom: "125%" }}>
-                        <img src={profile.imageUrl} alt={country.nameKo} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-                        <div className="absolute top-1.5 left-1.5">
-                          <TwemojiFlag emoji={country.flag} size={16} />
-                        </div>
-                        {isSelected && (
-                          <div className="absolute bottom-0 inset-x-0 bg-accent-green py-0.5 text-center">
-                            <span className="text-[8px] font-bold text-surface-dark">적용중</span>
-                          </div>
-                        )}
-                      </div>
-                      <span className="text-[10px] font-medium text-on-surface-variant">{country.nameKo}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {data.profiles.length === 0 && (
-              <div className="text-center py-6">
-                <p className="text-sm text-on-surface-variant">아직 프로필이 없어요</p>
-              </div>
-            )}
-
-            <button
-              onClick={() => setGenStep("selectCountry")}
-              disabled={remaining <= 0}
-              className="mt-5 w-full flex items-center justify-center gap-2 rounded-xl bg-accent-blue py-3 text-sm font-bold text-white disabled:opacity-40"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-              새 프로필 만들기
-            </button>
-          </>
-        )}
-
-        {genStep === "selectCountry" && (
-          <>
-            <h3 className="text-base font-bold text-surface-dark mb-1">어느 나라 선수가 되어볼까요?</h3>
-            <p className="text-xs text-on-surface-variant mb-3">AI가 해당 국가 스타일로 프로필을 만들어드려요</p>
-            <div className="relative">
-              <input type="text" placeholder="국가 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full rounded-xl border border-gray-200 bg-surface-hover px-4 py-2.5 pl-9 text-sm text-surface-dark placeholder:text-on-surface-variant focus:border-accent-blue focus:outline-none" />
-              <svg className="absolute top-1/2 left-3 -translate-y-1/2 text-on-surface-variant" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2 max-h-[240px] overflow-y-auto">
-              {(searchQuery ? COUNTRIES.filter((c) => c.nameKo.includes(searchQuery) || c.name.toLowerCase().includes(searchQuery.toLowerCase())) : COUNTRIES.slice(0, 12)).map((country) => (
-                <button key={country.code} onClick={() => { setGenCountry(country.code); setGenStep("uploadPhoto"); setSearchQuery(""); }} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-left hover:border-accent-blue">
-                  <TwemojiFlag emoji={country.flag} size={18} />
-                  <span className="text-xs font-medium text-surface-dark truncate">{country.nameKo}</span>
-                </button>
-              ))}
-            </div>
-            <button onClick={() => setGenStep("idle")} className="mt-3 w-full text-xs text-on-surface-variant">뒤로</button>
-          </>
-        )}
-
-        {genStep === "uploadPhoto" && genCountryData && (
-          <div className="text-center">
-            <TwemojiFlag emoji={genCountryData.flag} size={36} />
-            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 선수 프로필</p>
-            <p className="mt-1 text-xs text-on-surface-variant">사진을 업로드하면 AI가 변환해드려요</p>
-            <div className="mx-auto mt-4 flex h-36 w-36 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-300 bg-surface-hover">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-              <span className="text-[10px] text-on-surface-variant">사진 업로드</span>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <button onClick={() => setGenStep("selectCountry")} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">뒤로</button>
-              <button onClick={() => setGenStep("generating")} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">생성하기</button>
-            </div>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-surface-dark">내 프로필</h3>
+          <div className="flex items-center gap-1 rounded-full bg-gray-50 px-2.5 py-1">
+            <span className="text-[10px] font-bold text-accent-blue">{remaining}회 남음</span>
           </div>
-        )}
+        </div>
 
-        {genStep === "generating" && genCountryData && (
-          <div className="text-center py-6">
-            <div className="mx-auto h-14 w-14 animate-spin rounded-full border-4 border-gray-200 border-t-accent-blue" />
-            <p className="mt-4 text-sm font-bold text-surface-dark">프로필 생성 중...</p>
-            <p className="mt-1 text-xs text-on-surface-variant">AI가 {genCountryData.nameKo} 국가대표 스타일로 만들고 있어요</p>
-          </div>
-        )}
+        <div className="grid grid-cols-3 gap-3">
+          {data.profiles.map((profile) => {
+            const country = COUNTRIES.find((c) => c.code === profile.country)!;
+            const isSelected = profile.id === activeProfileId;
+            return (
+              <button key={profile.id} onClick={() => onSelect(profile.id)} className="flex flex-col items-center gap-1.5">
+                <div className={`relative w-full rounded-tr-[20px] overflow-hidden border-2 transition-all ${
+                  isSelected ? "border-accent-green shadow-md" : "border-transparent"
+                }`} style={{ paddingBottom: "125%" }}>
+                  <img src={profile.imageUrl} alt={country.nameKo} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                  <div className="absolute top-2 left-2">
+                    <TwemojiFlag emoji={country.flag} size={18} />
+                  </div>
+                  {isSelected && (
+                    <div className="absolute bottom-0 inset-x-0 bg-accent-green py-1 text-center">
+                      <span className="text-[9px] font-bold text-surface-dark">적용중</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-xs font-medium text-on-surface-variant">{country.nameKo}</span>
+              </button>
+            );
+          })}
+        </div>
 
-        {genStep === "done" && genCountryData && (
-          <div className="text-center">
-            <p className="text-xs font-bold text-accent-blue">생성 완료!</p>
-            <div className="mx-auto mt-3 w-32 h-40 rounded-bl-[16px] rounded-br-[16px] rounded-tr-[16px] overflow-hidden border-2 border-accent-green">
-              <img src="/img/profile.png" alt="Generated" className="w-full h-full object-cover" />
-            </div>
-            <p className="mt-2 text-sm font-bold text-surface-dark">{genCountryData.nameKo} 프로필</p>
-            <div className="mt-4 flex gap-2">
-              <button onClick={onClose} className="flex-1 rounded-xl bg-accent-green py-2.5 text-xs font-bold text-surface-dark">프로필에 적용</button>
-              <button onClick={() => { setGenStep("idle"); setGenCountry(null); }} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-medium text-on-surface-variant">다른 프로필 보기</button>
-            </div>
-          </div>
-        )}
+        <a
+          href={`/profile/create?owned=${data.ownedVests.join(",")}`}
+          className={`mt-6 w-full flex items-center justify-center gap-2 rounded-xl bg-accent-blue py-4 text-sm font-bold text-white ${remaining <= 0 ? "opacity-40 pointer-events-none" : ""}`}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+          새 프로필 만들기
+        </a>
       </div>
     </div>
   );
@@ -1757,41 +1760,57 @@ function CollectionTab({ data }: { data: ScenarioData }) {
 // ─── Store Tab ───
 const STORE_ITEMS = [
   {
+    id: 0,
+    name: "프로필 이미지 생성권 10개",
+    price: 10,
+    emoji: "🎨",
+    description: "AI 프로필 이미지 생성 10회",
+    stock: 999,
+  },
+  {
     id: 1,
-    name: "WC26 크루삭스",
-    price: 500,
+    name: "플랩 크루 삭스",
+    price: 80,
     emoji: "🧦",
     description: "월드컵 에디션 플랩 크루삭스",
     stock: 120,
   },
   {
     id: 2,
-    name: "매치볼",
-    price: 2000,
+    name: "플랩 오피셜 소셜매치볼",
+    price: 350,
     emoji: "⚽",
-    description: "WC26 공식 매치볼 레플리카",
+    description: "플랩 공식 소셜매치볼",
     stock: 50,
   },
   {
     id: 3,
-    name: "WC26 캡",
-    price: 1500,
+    name: "플랩 트레이닝 캡",
+    price: 280,
     emoji: "🧢",
-    description: "월드컵 에디션 스냅백 캡",
+    description: "플랩 트레이닝 캡",
     stock: 80,
   },
   {
     id: 4,
-    name: "플랩 토트백",
-    price: 1000,
+    name: "플랩 스웨트 백",
+    price: 180,
     emoji: "👜",
-    description: "플랩 로고 캔버스 토트백",
+    description: "플랩 스웨트 백",
     stock: 200,
   },
   {
     id: 5,
-    name: "WC26 핀 뱃지",
-    price: 300,
+    name: "플랩 팀 조끼",
+    price: 120,
+    emoji: "🦺",
+    description: "플랩 팀 조끼",
+    stock: 150,
+  },
+  {
+    id: 6,
+    name: "네이션스 우승국 뱃지",
+    price: 50,
     emoji: "📌",
     description: "월드컵 에디션 메탈 핀 뱃지",
     stock: 300,
@@ -1833,8 +1852,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
 
       {/* Store Items */}
       <div className="mt-6">
-        <h2 className="text-xl font-bold text-surface-dark">굿즈</h2>
-        <p className="mt-1 text-sm text-on-surface-variant">토큰으로 실물 굿즈를 구매하세요</p>
+        <h2 className="text-xl font-bold text-surface-dark">토큰으로 굿즈를 구매하세요!</h2>
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
@@ -1844,18 +1862,20 @@ function StoreTab({ data }: { data: ScenarioData }) {
             <button
               key={item.id}
               onClick={() => setSelectedItem(item)}
-              className="flex flex-col rounded-2xl border border-gray-100 bg-white p-4 text-left transition-shadow hover:shadow-md cursor-pointer"
+              className="flex flex-col rounded-2xl border border-gray-100 bg-white overflow-hidden text-left transition-shadow hover:shadow-md cursor-pointer"
             >
-              <div className="flex h-16 w-full items-center justify-center text-4xl">
+              <div className="flex h-20 w-full items-center justify-center text-4xl bg-gray-50">
                 {item.emoji}
               </div>
-              <p className="mt-3 text-sm font-bold text-surface-dark leading-tight">{item.name}</p>
+              <div className="px-4 pt-3 pb-4">
+              <p className="text-sm font-bold text-surface-dark leading-tight">{item.name}</p>
               <p className="mt-1 text-[11px] text-on-surface-variant leading-snug">{item.description}</p>
               <div className="mt-3 flex items-center gap-1">
                 <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
                 <span className={`text-sm font-russo ${canAfford ? "text-surface-dark" : "text-on-surface-variant"}`}>
                   {item.price.toLocaleString()}
                 </span>
+              </div>
               </div>
             </button>
           );
