@@ -99,7 +99,7 @@ export default function LockerPage() {
       {/* Nav */}
       <div className="sticky top-0 z-50 bg-white">
         <div className="px-5 py-3 flex items-center justify-between">
-          <a href="/vest" className="text-surface-dark">
+          <a href="/" className="text-surface-dark">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>

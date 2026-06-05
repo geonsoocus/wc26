@@ -251,7 +251,7 @@ function ProfileCreateInner() {
               </button>
             </div>
             <button
-              onClick={() => router.push("/vest")}
+              onClick={() => router.push("/")}
               className={`w-full py-2 text-sm ${txtSub}`}
             >
               닫기
