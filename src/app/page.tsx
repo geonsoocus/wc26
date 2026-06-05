@@ -83,7 +83,7 @@ const SCENARIO_DATA = {
   active: {
     label: "케이스2: 참여중 유저",
     desc: "프로필 생성 완료, 매치 참여 중",
-    ownedVests: ["KOR", "BRA", "FRA", "MEX", "GER"],
+    ownedVests: ["NOR", "KOR", "MEX", "GER"],
     packs: [
       { id: 1, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "GER", mockReward: { kind: "nations" as const, country: "GER" } },
       { id: 2, type: "nations" as PackType, label: "네이션스팩", image: "/img/daily_pack.svg", mockReward: { kind: "nations" as const, country: "JPN" } },
@@ -217,6 +217,7 @@ function VestPageInner() {
     { key: "friends", label: "친구" },
     { key: "collection", label: "컬렉션" },
     { key: "packs", label: "팩", badge: packCount > 0 ? packCount : undefined },
+    { key: "store", label: "스토어" },
   ];
 
   if (showIntro) {
@@ -619,7 +620,9 @@ function MainTab({
 }) {
   const [predictions, setPredictions] = useState(data.predictions.map(p => ({ ...p })));
   const [pickingSlot, setPickingSlot] = useState<number | null>(null);
+  const [collectionOpen, setCollectionOpen] = useState(false);
   useEscClose(pickingSlot !== null, () => setPickingSlot(null));
+  useEscClose(collectionOpen, () => setCollectionOpen(false));
   const [toast, setToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -675,6 +678,38 @@ function MainTab({
 
       {/* 출석체크 미션 */}
       <AttendanceMission attendance={data.attendance} />
+
+      {/* 조끼 컬렉션 */}
+      <section className="rounded-2xl bg-gray-50 px-5 py-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-surface-dark">조끼 컬렉션</h2>
+          <span className="text-lg font-russo text-surface-dark">{data.ownedVests.length}<span className="text-sm font-sans text-on-surface-variant font-normal">/48</span></span>
+        </div>
+        {data.ownedVests.length > 0 ? (
+          <div className="mt-4 grid grid-cols-4 gap-2">
+            {data.ownedVests.slice(0, 4).map((code) => {
+              const country = COUNTRIES.find(c => c.code === code)!;
+              return (
+                <div key={code} className="flex items-center justify-center h-[100px]">
+                  {country.bibImage ? (
+                    <img src={country.bibImage} alt={country.nameKo} className="h-full object-contain" draggable={false} />
+                  ) : (
+                    <TwemojiFlag emoji={country.flag} size={42} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-on-surface-variant">팩을 열어서 조끼를 모아보세요</p>
+        )}
+        <button
+          onClick={() => setCollectionOpen(true)}
+          className="mt-4 w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-surface-dark"
+        >
+          전체 보기
+        </button>
+      </section>
 
       {/* 우승국 예측 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-8">
@@ -738,6 +773,32 @@ function MainTab({
           </div>
         )}
       </section>
+
+      {/* Collection Bottom Sheet */}
+      {collectionOpen && (
+        <div className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center" onClick={() => setCollectionOpen(false)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white pt-6 pb-10 max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+            <div className="flex items-center justify-between px-6 mb-4">
+              <h3 className="text-lg font-bold text-surface-dark">조끼 컬렉션</h3>
+              <span className="text-lg font-russo text-surface-dark">{data.ownedVests.length}<span className="text-sm font-sans text-on-surface-variant font-normal">/48</span></span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6">
+              <div className="grid grid-cols-4 gap-2">
+                {COUNTRIES.map((country) => (
+                  <VestCard key={country.code} country={country} owned={data.ownedVests.includes(country.code)} />
+                ))}
+              </div>
+            </div>
+            <div className="px-6 pt-4">
+              <button onClick={() => setCollectionOpen(false)} className="w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Vest Picker Modal */}
       {pickingSlot !== null && (
@@ -1835,9 +1896,32 @@ const STORE_ITEMS = [
   },
 ];
 
+const GACHA_POOL = [
+  { name: "플랩 크루 삭스", emoji: "🧦", rarity: "common" },
+  { name: "WC26 핀 뱃지", emoji: "📌", rarity: "common" },
+  { name: "프로필 생성권 10개", emoji: "🎨", rarity: "common" },
+  { name: "플랩 스웨트 백", emoji: "👜", rarity: "uncommon" },
+  { name: "플랩 팀 조끼", emoji: "🦺", rarity: "uncommon" },
+  { name: "플랩 트레이닝 캡", emoji: "🧢", rarity: "rare" },
+  { name: "플랩 오피셜 소셜매치볼", emoji: "⚽", rarity: "rare" },
+  { name: "대한민국 국가대표 유니폼", emoji: "👕", rarity: "legendary" },
+];
+
+const RARITY_COLORS: Record<string, { bg: string; text: string; label: string }> = {
+  common: { bg: "bg-gray-100", text: "text-[#676d7e]", label: "일반" },
+  uncommon: { bg: "bg-blue-50", text: "text-[#1570ff]", label: "고급" },
+  rare: { bg: "bg-purple-50", text: "text-purple-600", label: "희귀" },
+  legendary: { bg: "bg-amber-50", text: "text-amber-600", label: "전설" },
+};
+
 function StoreTab({ data }: { data: ScenarioData }) {
   const [selectedItem, setSelectedItem] = useState<(typeof STORE_ITEMS)[0] | null>(null);
+  const [gachaOpen, setGachaOpen] = useState(false);
+  const [gachaResult, setGachaResult] = useState<(typeof GACHA_POOL)[0] | null>(null);
+  const [gachaSpinning, setGachaSpinning] = useState(false);
   useEscClose(!!selectedItem, () => setSelectedItem(null));
+  useEscClose(gachaOpen && !gachaResult, () => setGachaOpen(false));
+  useEscClose(!!gachaResult, () => { setGachaResult(null); setGachaOpen(false); });
 
   useEffect(() => {
     if (selectedItem) {
@@ -1851,23 +1935,129 @@ function StoreTab({ data }: { data: ScenarioData }) {
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
       {/* Token Balance */}
-      <div className="rounded-2xl bg-surface-dark p-5">
+      <div className="flex items-center gap-2">
+        <img src="/img/token.svg" alt="token" className="h-6 w-6" draggable={false} />
+        <span className="text-2xl font-russo text-surface-dark">{data.tokens.toLocaleString()}</span>
+        <span className="text-sm text-on-surface-variant">토큰</span>
+      </div>
+
+      {/* Gacha Card */}
+      <button
+        onClick={() => setGachaOpen(true)}
+        className="mt-6 w-full rounded-2xl bg-surface-dark p-5 text-left cursor-pointer active:scale-[0.99] transition-transform"
+      >
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/img/token.svg" alt="token" className="h-11 w-11" draggable={false} />
-            <div>
-              <p className="text-xs font-medium text-white/60">보유 토큰</p>
-              <p className="mt-0.5 text-3xl font-russo text-accent-green">{data.tokens.toLocaleString()}</p>
+          <div>
+            <h2 className="text-lg font-bold text-white">🎰 굿즈 뽑기</h2>
+            <p className="mt-1 text-sm text-white/50">랜덤으로 굿즈를 획득하세요!</p>
+          </div>
+          <div className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5">
+            <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
+            <span className="text-sm font-russo text-accent-green">10</span>
+          </div>
+        </div>
+      </button>
+
+      {/* Gacha Modal */}
+      {gachaOpen && !gachaResult && (
+        <div className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center" onClick={() => !gachaSpinning && setGachaOpen(false)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)]" />
+          <div className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white pt-6 pb-10 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+
+            <div className="px-6">
+              <h3 className="text-xl font-bold text-surface-dark text-center">굿즈 뽑기</h3>
+              <p className="mt-1 text-sm text-on-surface-variant text-center">1회 10토큰으로 랜덤 굿즈를 뽑아보세요</p>
+            </div>
+
+            {/* Gacha Machine */}
+            <div className="mt-6 flex flex-col items-center px-6">
+              <div className={`relative w-32 h-32 rounded-full flex items-center justify-center text-6xl ${gachaSpinning ? "animate-spin" : ""}`} style={{ background: "conic-gradient(#FF4029, #1570FF, #FFBE1A, #E0FF47, #96ff62, #FF4029)", animationDuration: "0.5s" }}>
+                <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center text-5xl">
+                  {gachaSpinning ? "✨" : "🎰"}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  if (gachaSpinning || data.tokens < 10) return;
+                  setGachaSpinning(true);
+                  setTimeout(() => {
+                    const result = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
+                    setGachaResult(result);
+                    setGachaSpinning(false);
+                  }, 2000);
+                }}
+                disabled={data.tokens < 10 || gachaSpinning}
+                className={`mt-6 w-full max-w-[280px] rounded-xl py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  gachaSpinning ? "bg-gray-200 text-on-surface-variant" : data.tokens < 10 ? "bg-gray-200 text-on-surface-variant" : "bg-surface-dark text-white active:scale-[0.98]"
+                }`}
+              >
+                {gachaSpinning ? (
+                  <>뽑는 중...</>
+                ) : (
+                  <>
+                    뽑기
+                    <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px]">
+                      <img src="/img/token.svg" alt="" className="h-3 w-3" /> 10
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Pool List */}
+            <div className="mt-6 px-6 flex-1 overflow-y-auto">
+              <p className="text-xs font-bold text-on-surface-variant mb-3">획득 가능 상품</p>
+              <div className="grid grid-cols-2 gap-2">
+                {GACHA_POOL.map((item) => {
+                  const r = RARITY_COLORS[item.rarity];
+                  return (
+                    <div key={item.name} className="flex flex-col items-center gap-1.5 rounded-xl bg-gray-50 px-3 py-4">
+                      <span className="text-3xl">{item.emoji}</span>
+                      <p className="text-xs font-bold text-surface-dark text-center leading-tight">{item.name}</p>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${r.bg} ${r.text}`}>{r.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <button className="rounded-xl bg-accent-green px-4 py-2.5 text-sm font-bold text-surface-dark">
-            충전하기
-          </button>
         </div>
-        <div className="mt-3 flex items-center gap-2 text-[11px] text-white/50">
-          <span>💡 리워드팩 오픈으로 토큰을 획득할 수 있어요</span>
+      )}
+
+      {/* Gacha Result Modal */}
+      {gachaResult && (
+        <div className="fixed inset-0 z-[210] flex items-center justify-center">
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.7)]" />
+          <div className="relative flex flex-col items-center bg-white rounded-3xl px-8 pt-10 pb-8 w-[300px] shadow-2xl" onClick={e => e.stopPropagation()}>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${RARITY_COLORS[gachaResult.rarity].text}`}>
+              {RARITY_COLORS[gachaResult.rarity].label}
+            </span>
+            <div className="mt-5 flex h-24 w-24 items-center justify-center rounded-full bg-gray-50 text-6xl animate-vest-pop">
+              {gachaResult.emoji}
+            </div>
+            <p className="mt-5 text-lg font-bold text-surface-dark text-center">{gachaResult.name}</p>
+            <p className="mt-1 text-sm text-on-surface-variant">축하합니다! 🎉</p>
+            <div className="mt-6 w-full flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setGachaResult(null);
+                }}
+                className="w-full rounded-xl bg-surface-dark py-3.5 text-sm font-bold text-white"
+              >
+                한번 더 뽑기
+              </button>
+              <button
+                onClick={() => { setGachaResult(null); setGachaOpen(false); }}
+                className="w-full py-2 text-sm text-on-surface-variant"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Store Items */}
       <div className="mt-6">

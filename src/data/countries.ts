@@ -13,7 +13,7 @@ export const COUNTRIES: Country[] = [
   // Group A
   { code: "MEX", name: "Mexico", nameKo: "멕시코", flag: "🇲🇽", group: "A", primary: "#006847", secondary: "#ce1126", bibImage: "/img/bibs_mexico.png" },
   { code: "RSA", name: "South Africa", nameKo: "남아공", flag: "🇿🇦", group: "A", primary: "#007749", secondary: "#ffb81c" },
-  { code: "KOR", name: "South Korea", nameKo: "대한민국", flag: "🇰🇷", group: "A", primary: "#c1272d", secondary: "#0047a0" },
+  { code: "KOR", name: "South Korea", nameKo: "대한민국", flag: "🇰🇷", group: "A", primary: "#c1272d", secondary: "#0047a0", bibImage: "/img/bibs_korea.png" },
   { code: "CZE", name: "Czechia", nameKo: "체코", flag: "🇨🇿", group: "A", primary: "#d7141a", secondary: "#11457e" },
   // Group B
   { code: "CAN", name: "Canada", nameKo: "캐나다", flag: "🇨🇦", group: "B", primary: "#ff0000", secondary: "#ffffff" },
@@ -54,7 +54,7 @@ export const COUNTRIES: Country[] = [
   { code: "FRA", name: "France", nameKo: "프랑스", flag: "🇫🇷", group: "I", primary: "#002395", secondary: "#ffffff" },
   { code: "SEN", name: "Senegal", nameKo: "세네갈", flag: "🇸🇳", group: "I", primary: "#ffffff", secondary: "#00853f" },
   { code: "IRQ", name: "Iraq", nameKo: "이라크", flag: "🇮🇶", group: "I", primary: "#ffffff", secondary: "#007a3d" },
-  { code: "NOR", name: "Norway", nameKo: "노르웨이", flag: "🇳🇴", group: "I", primary: "#c1272d", secondary: "#002868" },
+  { code: "NOR", name: "Norway", nameKo: "노르웨이", flag: "🇳🇴", group: "I", primary: "#c1272d", secondary: "#002868", bibImage: "/img/bibs_norway.png" },
   // Group J
   { code: "ARG", name: "Argentina", nameKo: "아르헨티나", flag: "🇦🇷", group: "J", primary: "#75aadb", secondary: "#ffffff" },
   { code: "ALG", name: "Algeria", nameKo: "알제리", flag: "🇩🇿", group: "J", primary: "#ffffff", secondary: "#006233" },
