@@ -69,9 +69,9 @@ const SCENARIO_DATA = {
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
-      { slot: 1, country: null, unlocked: false },
-      { slot: 2, country: null, unlocked: false },
-      { slot: 3, country: null, unlocked: false },
+      { slot: 1, country: null, unlocked: true },
+      { slot: 2, country: null, unlocked: true },
+      { slot: 3, country: null, unlocked: true },
     ],
     friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
@@ -101,7 +101,7 @@ const SCENARIO_DATA = {
     predictions: [
       { slot: 1, country: "KOR", unlocked: true },
       { slot: 2, country: null, unlocked: true },
-      { slot: 3, country: null, unlocked: false },
+      { slot: 3, country: null, unlocked: true },
     ],
     friends: [
       { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png", hasProfile: true, stats: { match: 12, level: 8, praise: 45, pom: 3, manner: 4.8 } },
@@ -134,9 +134,9 @@ const SCENARIO_DATA = {
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
-      { slot: 1, country: null, unlocked: false },
-      { slot: 2, country: null, unlocked: false },
-      { slot: 3, country: null, unlocked: false },
+      { slot: 1, country: null, unlocked: true },
+      { slot: 2, country: null, unlocked: true },
+      { slot: 3, country: null, unlocked: true },
     ],
     friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
@@ -718,45 +718,33 @@ function MainTab({
         <div className="mt-6 flex gap-2">
           {predictions.map((pred) => {
             const country = pred.country ? COUNTRIES.find((c) => c.code === pred.country) : null;
-            const canTap = pred.unlocked;
             return (
               <button
                 key={pred.slot}
-                onClick={() => {
-                  if (canTap) { setPickingSlot(pred.slot); }
-                  else {
-                    setToast(true);
-                    if (toastTimer.current) clearTimeout(toastTimer.current);
-                    toastTimer.current = setTimeout(() => setToast(false), 2000);
-                  }
-                }}
-                className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 text-left transition-transform ${
-                  pred.unlocked && country ? "bg-accent-green" : "bg-surface-gray"
-                } ${canTap ? "cursor-pointer active:scale-95" : ""}`}
+                onClick={() => setPickingSlot(pred.slot)}
+                className={`flex flex-1 flex-col gap-1 rounded-bl-[20px] rounded-br-[20px] rounded-tr-[20px] p-1 text-left transition-transform cursor-pointer active:scale-95 ${
+                  country ? "bg-accent-green" : "bg-surface-gray"
+                }`}
               >
                 <div className="flex items-center gap-1 px-2 h-6">
-                  {pred.unlocked && country ? (
+                  {country ? (
                     <>
                       <TwemojiFlag emoji={country.flag} size={16} />
                       <span className="text-xs font-semibold text-surface-dark tracking-tight">{country.nameKo}</span>
                     </>
-                  ) : pred.unlocked ? (
-                    <span className="text-xs font-semibold text-accent-green tracking-tight">선택하기</span>
                   ) : (
-                    <span className="text-xs font-semibold text-on-surface-variant/50 tracking-tight">잠김</span>
+                    <span className="text-xs font-semibold text-accent-green tracking-tight">선택하기</span>
                   )}
                 </div>
-                <div className="flex h-[120px] items-center justify-center rounded-2xl bg-surface-dark px-4 py-5">
-                  {pred.unlocked && country ? (
+                <div className="flex h-[120px] items-center justify-center rounded-2xl bg-surface-dark px-4 py-3">
+                  {country ? (
                     country.bibImage
                       ? <img src={country.bibImage} alt={country.nameKo} className="h-full object-contain" draggable={false} />
                       : <TwemojiFlag emoji={country.flag} size={48} />
-                  ) : pred.unlocked ? (
+                  ) : (
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#96ff62" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" />
                     </svg>
-                  ) : (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#676d7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                   )}
                 </div>
               </button>
@@ -835,8 +823,12 @@ function MainTab({
                           used ? "opacity-30 cursor-default" : "cursor-pointer active:scale-95 hover:bg-gray-50"
                         }`}
                       >
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-green/20">
-                          <TwemojiFlag emoji={c.flag} size={28} />
+                        <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-accent-green/10">
+                          {c.bibImage ? (
+                            <img src={c.bibImage} alt={c.nameKo} className="h-14 object-contain" draggable={false} />
+                          ) : (
+                            <TwemojiFlag emoji={c.flag} size={28} />
+                          )}
                         </div>
                         <span className="text-[11px] font-semibold text-surface-dark text-center leading-tight">{c.nameKo}</span>
                         {used && <span className="text-[9px] text-on-surface-variant">선택됨</span>}
@@ -2457,7 +2449,7 @@ function VestCard({ country, owned, size = "sm" }: { country: (typeof COUNTRIES)
       <div className="flex items-center px-2">
         <span className={`text-[11px] font-semibold leading-relaxed tracking-tight ${owned ? "text-surface-dark" : "text-on-surface-variant"}`}>{country.nameKo}</span>
       </div>
-      <div className={`flex items-center justify-center rounded-2xl ${owned ? "bg-white" : "bg-gray-200"} ${isLg ? "h-[140px] px-3 py-4" : "h-[110px] px-3 py-3"}`}>
+      <div className={`flex items-center justify-center rounded-2xl ${owned ? "bg-white" : "bg-gray-200"} ${isLg ? "h-[140px] px-3 py-4" : "h-[130px] px-2 py-2"}`}>
         {owned && country.bibImage ? (
           <img src={country.bibImage} alt={`${country.nameKo} 조끼`} className="h-full object-contain" draggable={false} />
         ) : owned ? (
