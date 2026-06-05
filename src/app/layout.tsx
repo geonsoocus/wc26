@@ -21,7 +21,18 @@ const russoOne = Russo_One({
 
 export const metadata: Metadata = {
   title: "PLAB x WC26",
-  description: "PLAB Football World Cup 2026 Event",
+  description: "플랩 월드 — 월드컵의 열기를 플랩에서!",
+  openGraph: {
+    title: "쿠스님이 플랩월드에 초대했어요",
+    description: "내 글로벌 프로필을 만들고 글로벌 축구 대축제에 참여해보세요",
+    images: [{ url: "/api/og", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "쿠스님이 플랩월드에 초대했어요",
+    description: "내 글로벌 프로필을 만들고 글로벌 축구 대축제에 참여해보세요",
+    images: ["/api/og"],
+  },
 };
 
 export default function RootLayout({

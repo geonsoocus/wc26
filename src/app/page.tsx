@@ -625,6 +625,8 @@ function MainTab({
   useEscClose(collectionOpen, () => setCollectionOpen(false));
   const [toast, setToast] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [rewardInfo, setRewardInfo] = useState<{ title: string; emoji: string; desc: string } | null>(null);
+  useEscClose(!!rewardInfo, () => setRewardInfo(null));
 
   useEffect(() => {
     setPredictions(data.predictions.map(p => ({ ...p })));
@@ -677,13 +679,18 @@ function MainTab({
       {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
 
       {/* 출석체크 미션 */}
-      <AttendanceMission attendance={data.attendance} />
+      <AttendanceMission attendance={data.attendance} onRewardInfo={setRewardInfo} />
 
       {/* 조끼 컬렉션 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-surface-dark">조끼 컬렉션</h2>
-          <span className="text-lg font-russo text-surface-dark">{data.ownedVests.length}<span className="text-sm font-sans text-on-surface-variant font-normal">/48</span></span>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-extrabold text-surface-dark">조끼 컬렉션 <span className="font-medium text-on-surface-variant">{data.ownedVests.length}<span className="text-on-surface-variant/40">/48</span></span></h2>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant">48개국 조끼를 모아보세요</p>
+          </div>
+          <button onClick={() => setRewardInfo({ title: "컬렉션 리워드", emoji: "⚽", desc: "48개국 조끼를 모두 모은 플래버 중 추첨하여 월드컵 히스토리볼 세트를 드려요" })} className="flex items-center gap-1 rounded-full bg-accent-green/20 px-2.5 py-1 text-[11px] font-bold text-surface-dark active:scale-95 transition-transform flex-shrink-0">
+            🎁 리워드
+          </button>
         </div>
         {data.ownedVests.length > 0 ? (
           <div className="mt-4 grid grid-cols-4 gap-2">
@@ -713,8 +720,15 @@ function MainTab({
 
       {/* 우승국 예측 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-8">
-        <h2 className="text-xl font-bold text-surface-dark">우승국 예측</h2>
-        <p className="mt-1 text-sm font-medium text-black">획득한 조끼로 우승국을 예측해보세요!</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-extrabold text-surface-dark">우승국 예측 <span className="font-medium text-on-surface-variant">{predictions.filter(p => p.country).length}<span className="text-on-surface-variant/40">/3</span></span></h2>
+            <p className="mt-1 text-sm font-medium text-on-surface-variant">획득한 조끼로 우승국을 예측해보세요</p>
+          </div>
+          <button onClick={() => setRewardInfo({ title: "예측 리워드", emoji: "🏆", desc: "우승국을 맞춘 플래버 중 1명을 추첨하여 월드컵 트로피 레고를 드려요" })} className="flex items-center gap-1 rounded-full bg-accent-green/20 px-2.5 py-1 text-[11px] font-bold text-surface-dark active:scale-95 transition-transform flex-shrink-0">
+            🎁 리워드
+          </button>
+        </div>
         <div className="mt-6 flex gap-2">
           {predictions.map((pred) => {
             const country = pred.country ? COUNTRIES.find((c) => c.code === pred.country) : null;
@@ -838,6 +852,21 @@ function MainTab({
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Reward Info Modal */}
+      {rewardInfo && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center" onClick={() => setRewardInfo(null)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div className="relative w-[280px] rounded-3xl bg-white px-6 pt-8 pb-6 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+            <span className="text-5xl">{rewardInfo.emoji}</span>
+            <h3 className="mt-4 text-lg font-bold text-surface-dark">{rewardInfo.title}</h3>
+            <p className="mt-2 text-sm text-on-surface-variant leading-relaxed">{rewardInfo.desc}</p>
+            <button onClick={() => setRewardInfo(null)} className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
+              확인
+            </button>
           </div>
         </div>
       )}
@@ -1255,7 +1284,7 @@ function getMockCheckedDates(total: number): Set<string> {
   return dates;
 }
 
-function AttendanceMission({ attendance }: { attendance: ScenarioData["attendance"] }) {
+function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioData["attendance"]; onRewardInfo?: (info: { title: string; emoji: string; desc: string }) => void }) {
   const [justChecked, setJustChecked] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   useEscClose(calendarOpen, () => setCalendarOpen(false));
@@ -1315,14 +1344,14 @@ function AttendanceMission({ attendance }: { attendance: ScenarioData["attendanc
 
   return (
     <section className="rounded-2xl bg-gray-50 px-5 py-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-bold text-surface-dark">출석체크</h2>
-          <p className="mt-1 text-sm text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
+          <h2 className="text-xl font-extrabold text-surface-dark">출석체크 <span className="font-medium text-on-surface-variant">{totalCount}<span className="text-on-surface-variant/40">/{WC_TOTAL_DAYS}</span></span></h2>
+          <p className="mt-1 text-sm font-medium text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-russo text-surface-dark">{totalCount}<span className="text-sm font-sans text-on-surface-variant font-normal">/{WC_TOTAL_DAYS}일</span></p>
-        </div>
+        <button onClick={() => onRewardInfo?.({ title: "출석 리워드", emoji: "📦", desc: "출석체크 시 네이션스팩 1개를 받을 수 있어요" })} className="flex items-center gap-1 rounded-full bg-accent-green/20 px-2.5 py-1 text-[11px] font-bold text-surface-dark active:scale-95 transition-transform flex-shrink-0">
+          🎁 리워드
+        </button>
       </div>
 
       {/* Weekly Calendar */}
@@ -1473,8 +1502,8 @@ function MatchMission({ completed }: { completed: number }) {
 
   return (
     <section className="rounded-2xl bg-gray-50 px-5 py-6">
-      <h2 className="text-xl font-bold text-surface-dark">매치데이</h2>
-      <p className="mt-1 text-sm text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
+      <h2 className="text-xl font-extrabold text-surface-dark">매치데이 <span className="font-medium text-on-surface-variant">{completed}<span className="text-on-surface-variant/40">/3</span></span></h2>
+      <p className="mt-1 text-sm font-medium text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
 
       <div className="mt-5 relative">
         {/* Progress line */}
