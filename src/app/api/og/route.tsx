@@ -1,8 +1,12 @@
 import { ImageResponse } from "next/og";
+import { NextRequest } from "next/server";
 
 export const runtime = "edge";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const profileUrl = new URL("/img/profile_me_netherland.png", req.nextUrl.origin).toString();
+  const symbolUrl = new URL("/img/symbol.svg", req.nextUrl.origin).toString();
+
   return new ImageResponse(
     (
       <div
@@ -10,112 +14,98 @@ export async function GET() {
           width: 1200,
           height: 630,
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(135deg, #22252a 0%, #393d46 100%)",
-          fontFamily: "sans-serif",
+          background: "#5fc0e1",
+          position: "relative",
         }}
       >
-        {/* Decorative circles */}
-        <div style={{ position: "absolute", top: -80, right: -80, width: 400, height: 400, borderRadius: "50%", background: "rgba(150,255,98,0.08)", display: "flex" }} />
-        <div style={{ position: "absolute", bottom: -120, left: -60, width: 500, height: 500, borderRadius: "50%", background: "rgba(21,112,255,0.06)", display: "flex" }} />
-
+        {/* Left: Flag + Symbol */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            justifyContent: "center",
+            position: "absolute",
+            left: 40,
+            top: 40,
           }}
         >
-          {/* Globe emoji as logo */}
-          <div style={{ fontSize: 80, display: "flex" }}>🌍</div>
-
-          {/* Title */}
           <div
             style={{
-              marginTop: 24,
-              fontSize: 52,
-              fontWeight: 800,
-              color: "white",
+              width: 80,
+              height: 80,
+              background: "#22252a",
               display: "flex",
               alignItems: "center",
-              gap: 16,
+              justifyContent: "center",
+              fontSize: 48,
             }}
           >
-            <span style={{ color: "#96ff62" }}>PLAB</span>
-            <span>WORLD</span>
+            🇳🇱
           </div>
-
-          {/* Subtitle */}
           <div
             style={{
-              marginTop: 16,
-              fontSize: 28,
-              color: "rgba(255,255,255,0.9)",
-              display: "flex",
-            }}
-          >
-            쿠스님이 플랩월드에 초대했어요
-          </div>
-
-          {/* Description */}
-          <div
-            style={{
-              marginTop: 12,
-              fontSize: 20,
-              color: "rgba(255,255,255,0.5)",
-              display: "flex",
-            }}
-          >
-            내 글로벌 프로필을 만들고 글로벌 축구 대축제에 참여해보세요
-          </div>
-
-          {/* Country flags row */}
-          <div
-            style={{
-              marginTop: 32,
-              display: "flex",
-              gap: 12,
-              alignItems: "center",
-            }}
-          >
-            {["🇰🇷", "🇧🇷", "🇩🇪", "🇫🇷", "🇯🇵", "🇳🇱", "🇦🇷", "🇪🇸"].map((flag) => (
-              <div
-                key={flag}
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 12,
-                  background: "rgba(255,255,255,0.1)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 28,
-                }}
-              >
-                {flag}
-              </div>
-            ))}
-          </div>
-
-          {/* CTA */}
-          <div
-            style={{
-              marginTop: 32,
+              width: 80,
+              background: "white",
               display: "flex",
               alignItems: "center",
-              gap: 10,
-              background: "#96ff62",
-              padding: "14px 32px",
-              borderRadius: 16,
-              fontSize: 20,
-              fontWeight: 700,
-              color: "#22252a",
+              justifyContent: "center",
+              padding: "10px",
             }}
           >
-            지금 참여하기
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={symbolUrl} alt="" width={60} height={60} />
           </div>
+        </div>
+
+        {/* Right: Profile image */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "flex-end",
+            position: "absolute",
+            right: 0,
+            bottom: 0,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={profileUrl}
+            alt=""
+            width={580}
+            height={580}
+            style={{ objectFit: "contain", objectPosition: "bottom right" }}
+          />
+        </div>
+
+        {/* Bottom stat bar */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 70,
+            background: "#1570ff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-around",
+            padding: "0 60px",
+            color: "white",
+          }}
+        >
+          {[
+            { label: "MATCH", value: "7" },
+            { label: "LEVEL", value: "7" },
+            { label: "보낸 칭찬", value: "72" },
+            { label: "받은 칭찬", value: "48" },
+            { label: "POM", value: "3" },
+          ].map((s) => (
+            <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ fontSize: 13, opacity: 0.8, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</span>
+              <span style={{ fontSize: 28, fontWeight: 700 }}>{s.value}</span>
+            </div>
+          ))}
         </div>
       </div>
     ),
