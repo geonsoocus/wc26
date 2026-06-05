@@ -1820,7 +1820,28 @@ function FriendsTab({ data, scenario }: { data: ScenarioData; scenario: Scenario
 }
 
 // ─── Collection Tab ───
+const MOCK_FIFA_RANK: Record<string, number> = {
+  ARG: 1, FRA: 2, ESP: 3, ENG: 4, BRA: 5, BEL: 6, NED: 7, POR: 8, COL: 9, ITA: 10,
+  GER: 11, URU: 12, CRO: 13, USA: 14, MEX: 15, MAR: 16, SUI: 17, JPN: 18, IRN: 19, SEN: 20,
+  AUS: 21, DEN: 22, TUR: 23, AUT: 24, KOR: 25, UKR: 26, SRB: 27, POL: 28, ROU: 29, CZE: 30,
+  SCO: 31, NGA: 32, CAN: 33, EGY: 34, WAL: 35, NOR: 36, CIV: 37, TUN: 38, RSA: 39, PAR: 40,
+  PAN: 41, ECU: 42, CRC: 43, JAM: 44, BIH: 45, NZL: 46, SAU: 47, QAT: 48,
+};
+
 function CollectionTab({ data }: { data: ScenarioData }) {
+  const [selected, setSelected] = useState<(typeof COUNTRIES)[0] | null>(null);
+  const isOwned = selected ? data.ownedVests.includes(selected.code) : false;
+  useEscClose(!!selected, () => setSelected(null));
+
+  useEffect(() => {
+    if (selected) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => { document.body.style.overflow = ""; };
+  }, [selected]);
+
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
       <div className="flex items-center justify-between py-2">
@@ -1829,9 +1850,63 @@ function CollectionTab({ data }: { data: ScenarioData }) {
       </div>
       <div className="mt-5 grid grid-cols-4 gap-2">
         {COUNTRIES.map((country) => (
-          <VestCard key={country.code} country={country} owned={data.ownedVests.includes(country.code)} />
+          <button key={country.code} onClick={() => setSelected(country)} className="text-left active:scale-95 transition-transform">
+            <VestCard country={country} owned={data.ownedVests.includes(country.code)} />
+          </button>
         ))}
       </div>
+
+      {/* Vest Detail Modal */}
+      {selected && (
+        <div className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center" onClick={() => setSelected(null)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
+          <div className="relative w-full lg:max-w-sm rounded-t-3xl lg:rounded-3xl bg-white pt-6 pb-10" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+
+            {/* Vest Image */}
+            <div className="flex flex-col items-center px-6">
+              <div className="flex h-[180px] w-[180px] items-center justify-center rounded-2xl" style={{ background: isOwned ? selected.primary : "#e5e7eb" }}>
+                {isOwned && selected.bibImage ? (
+                  <img src={selected.bibImage} alt={selected.nameKo} className="h-[150px] object-contain" draggable={false} />
+                ) : isOwned ? (
+                  <TwemojiFlag emoji={selected.flag} size={72} />
+                ) : (
+                  <TwemojiFlag emoji={selected.flag} size={72} grayscale />
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center gap-2">
+                <TwemojiFlag emoji={selected.flag} size={20} />
+                <span className="text-lg font-bold text-surface-dark">{selected.nameKo}</span>
+                <span className="text-sm text-on-surface-variant">({selected.name})</span>
+              </div>
+              <span className="mt-1 text-xs text-on-surface-variant">GROUP {selected.group}</span>
+            </div>
+
+            {/* Stats */}
+            <div className="mt-5 mx-6 grid grid-cols-3 gap-3">
+              <div className="rounded-xl bg-gray-50 p-3 text-center">
+                <p className="text-[10px] text-on-surface-variant">FIFA 랭킹</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{MOCK_FIFA_RANK[selected.code] ?? "-"}</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 text-center">
+                <p className="text-[10px] text-on-surface-variant">획득 확률</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{(100 / 48).toFixed(1)}%</p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 text-center">
+                <p className="text-[10px] text-on-surface-variant">획득 수</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{isOwned ? 1 : 0}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 px-6">
+              <button onClick={() => setSelected(null)} className="w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -2078,12 +2153,14 @@ function StoreTab({ data }: { data: ScenarioData }) {
               </div>
               <div className="px-4 pt-3 pb-4">
               <p className="text-base font-bold text-surface-dark leading-tight">{item.name}</p>
-              <p className="mt-1 text-sm text-on-surface-variant leading-snug">{item.description}</p>
-              <div className="mt-3 flex items-center gap-1">
-                <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
-                <span className={`text-sm font-russo ${canAfford ? "text-surface-dark" : "text-on-surface-variant"}`}>
-                  {item.price.toLocaleString()}
-                </span>
+              <div className="mt-3 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
+                  <span className={`text-sm font-russo ${canAfford ? "text-surface-dark" : "text-on-surface-variant"}`}>
+                    {item.price.toLocaleString()}
+                  </span>
+                </div>
+                <span className="text-[10px] text-on-surface-variant">{item.stock}개 남음</span>
               </div>
               </div>
             </button>
