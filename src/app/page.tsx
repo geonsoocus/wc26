@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, Suspense, Fragment } from "re
 import { useSearchParams, useRouter } from "next/navigation";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
+import * as wc26api from "@/lib/wc26api";
+import { useLiveData, type LiveData } from "@/lib/useLiveData";
 
 function useEscClose(isOpen: boolean, onClose: () => void) {
   const handler = useCallback((e: KeyboardEvent) => {
@@ -173,6 +175,47 @@ const SCENARIO_DATA = {
 type Tab = "main" | "packs" | "friends" | "collection" | "store";
 const VALID_TABS: Tab[] = ["main", "friends", "collection", "store", "packs"];
 
+// ─── 라이브 모드 액션 인터페이스 (user_code 있을 때 실제 API 호출) ───
+// NOTE: mock 모드에서는 undefined 로 전달되어 기존 애니메이션/로컬 상태만 동작한다.
+interface LiveActions {
+  openPack: (packId: number, packType?: string) => Promise<{ country?: string; item?: string } | null>;
+  checkAttendance: () => Promise<void>;
+  selectPrediction: (bibId: number) => Promise<void>;
+  exchangeGoods: (goodsItemId: number) => Promise<void>;
+  enter: () => Promise<void>;
+  refetch: () => Promise<void>;
+}
+
+// 라이브 데이터(LiveData)를 기존 mock 타입(ScenarioData)에 대입 가능한 형태로 어댑트.
+// NOTE: packs 의 mockReward 는 placeholder. 라이브 오픈은 openPack 액션 결과로 실제 보상을 채운다.
+function toScenarioData(live: LiveData): ScenarioData {
+  return {
+    label: "라이브",
+    desc: "백엔드 연동 데이터",
+    ownedVests: live.ownedVests,
+    packs: live.packs.map((p) => ({
+      id: p.id,
+      type: p.type,
+      label: p.label,
+      image: p.image,
+      mockReward:
+        p.type === "nations"
+          ? { kind: "nations" as const, country: "KOR" }
+          : { kind: "reward" as const, item: "보상" },
+    })),
+    stats: live.stats,
+    profiles: live.profiles,
+    profileQuota: live.profileQuota,
+    predictions: live.predictions,
+    friends: live.friends,
+    hasProfile: live.hasProfile,
+    matchMission: live.matchMission,
+    inviter: live.inviter,
+    tokens: live.tokens,
+    attendance: live.attendance,
+  };
+}
+
 export default function VestPage() {
   return (
     <Suspense>
@@ -210,14 +253,89 @@ function VestPageInner() {
   useEscClose(profilePickerOpen, () => setProfilePickerOpen(false));
   useEscClose(pomOpen, () => setPomOpen(false));
   useEscClose(!!openedPack, () => setOpenedPack(null));
-  const [showIntro, setShowIntro] = useState(!SCENARIO_DATA[scenario].hasProfile);
 
-  const data = SCENARIO_DATA[scenario];
-
-  const [activeProfileId, setActiveProfileId] = useState(data.profiles.find(p => p.isActive)?.id ?? 0);
-
-  // Reset state on scenario change
+  // ─── 라이브 모드: user_code 가 있으면 백엔드 데이터로 전환(없으면 mock 유지) ───
+  const [liveMode, setLiveMode] = useState(false);
   useEffect(() => {
+    setLiveMode(wc26api.hasUserCode());
+  }, []);
+  const live = useLiveData(liveMode);
+
+  const data: ScenarioData = liveMode && live.data ? toScenarioData(live.data) : SCENARIO_DATA[scenario];
+  const liveData = liveMode ? live.data : null;
+
+  // 라이브 액션 핸들러 — 각 호출 후 refetch 로 화면 동기화.
+  const liveActions: LiveActions | undefined = liveMode
+    ? {
+        openPack: async (packId, packType) => {
+          const res = await wc26api.post<{
+            awarded_bib?: { country_code: string };
+            awarded_items?: { item_type: string; quantity: number; token_amount: number | null }[];
+          }>(`/packs/${packId}/open/`);
+          await live.refetch();
+          if (res.awarded_bib) {
+            return { country: res.awarded_bib.country_code };
+          }
+          if (res.awarded_items && res.awarded_items.length > 0) {
+            const first = res.awarded_items[0];
+            const label =
+              first.item_type === "TOKEN"
+                ? `${first.token_amount ?? 0}토큰`
+                : first.item_type === "AI_TICKET"
+                  ? `프로필 생성권 ${first.quantity}개`
+                  : "플랩 선물꾸러미";
+            return { item: label };
+          }
+          return packType && (packType.startsWith("NATIONS")) ? { country: "KOR" } : { item: "보상" };
+        },
+        checkAttendance: async () => {
+          await wc26api.post("/attendance/check/");
+          await live.refetch();
+        },
+        selectPrediction: async (bibId) => {
+          await wc26api.post("/prediction/slots/", { bib_id: bibId });
+          await live.refetch();
+        },
+        exchangeGoods: async (goodsItemId) => {
+          await wc26api.post("/store/exchange/", { goods_item_id: goodsItemId });
+          await live.refetch();
+        },
+        enter: async () => {
+          await wc26api.post("/enter/");
+          await live.refetch();
+        },
+        refetch: async () => {
+          await live.refetch();
+        },
+      }
+    : undefined;
+
+  const [showIntro, setShowIntro] = useState(false);
+  useEffect(() => {
+    // NOTE: mock 모드만 인트로 노출. 라이브 모드는 백엔드 hasProfile 로 판단(데이터 도착 후).
+    if (!liveMode) setShowIntro(!SCENARIO_DATA[scenario].hasProfile);
+  }, [liveMode, scenario]);
+
+  // 라이브 최초 진입 시 웰컴 세트 미발급이면 자동 /enter/ 1회(멱등). 발급 후 refetch.
+  const enteredRef = useRef(false);
+  useEffect(() => {
+    if (!liveMode || !live.data || enteredRef.current) return;
+    if (!live.data.welcomeGranted) {
+      enteredRef.current = true;
+      void wc26api.post("/enter/").then(() => live.refetch()).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMode, live.data]);
+
+  const [activeProfileId, setActiveProfileId] = useState(0);
+  useEffect(() => {
+    setActiveProfileId(data.profiles.find(p => p.isActive)?.id ?? 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveMode, live.data, scenario]);
+
+  // Reset state on scenario change (mock 모드 전용)
+  useEffect(() => {
+    if (liveMode) return;
     setActiveTab("main");
     setOpenedPack(null);
     setWelcomeDismissed(false);
@@ -243,44 +361,53 @@ function VestPageInner() {
     { key: "store", label: "스토어" },
   ];
 
+  // 라이브 모드 로딩/에러 게이트 (Debug FAB 로 user_code 재설정 가능).
+  if (liveMode && (live.loading || live.error || !live.data)) {
+    return (
+      <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col items-center justify-center px-8 text-center">
+        {live.error ? (
+          <>
+            <div className="text-4xl">⚠️</div>
+            <p className="mt-3 text-sm font-bold text-surface-dark">백엔드 연결 오류</p>
+            <p className="mt-1 text-xs text-on-surface-variant break-all">{live.error}</p>
+            <button onClick={() => live.refetch()} className="mt-4 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white">
+              다시 시도
+            </button>
+            <button onClick={() => setDebugOpen(true)} className="mt-2 text-xs text-on-surface-variant underline">
+              user_code 변경
+            </button>
+          </>
+        ) : (
+          <>
+            <img src="/img/symbol.svg" alt="WC26" className="w-16 h-auto" style={{ animation: "globeSpin 6s linear infinite" }} />
+            <p className="mt-4 text-sm text-on-surface-variant">데이터를 불러오는 중...</p>
+          </>
+        )}
+        <DebugFab onClick={() => setDebugOpen(!debugOpen)} />
+        {debugOpen && (
+          <DebugPanel
+            scenario={scenario}
+            liveMode={liveMode}
+            onSelectScenario={(key) => { setScenario(key); setDebugOpen(false); }}
+            onClose={() => setDebugOpen(false)}
+          />
+        )}
+      </div>
+    );
+  }
+
   if (showIntro) {
     return (
       <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col">
         <ProfileIntroScreen onStart={() => setShowIntro(false)} />
-
-        {/* Debug FAB */}
-        <button
-          onClick={() => setDebugOpen(!debugOpen)}
-          className="fixed bottom-5 right-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-dark text-white shadow-lg active:scale-95"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
-          </svg>
-        </button>
-
+        <DebugFab onClick={() => setDebugOpen(!debugOpen)} />
         {debugOpen && (
-          <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
-            <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-surface-dark">시나리오 선택</h3>
-                <button onClick={() => setDebugOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
-              </div>
-              <div className="space-y-2">
-                {(Object.entries(SCENARIO_DATA) as [Scenario, typeof SCENARIO_DATA.new][]).map(([key, val]) => (
-                  <button
-                    key={key}
-                    onClick={() => { setScenario(key); setDebugOpen(false); }}
-                    className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
-                      scenario === key ? "border-accent-green bg-accent-green/5" : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <div className="text-sm font-bold text-surface-dark">{val.label}</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">{val.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+          <DebugPanel
+            scenario={scenario}
+            liveMode={liveMode}
+            onSelectScenario={(key) => { setScenario(key); setDebugOpen(false); }}
+            onClose={() => setDebugOpen(false)}
+          />
         )}
       </div>
     );
@@ -410,12 +537,14 @@ function VestPageInner() {
               data={data}
               scenario={scenario}
               onOpenProfilePicker={() => setProfilePickerOpen(true)}
+              liveData={liveData}
+              liveActions={liveActions}
             />
           )}
-          {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} />}
+          {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} liveData={liveData} liveActions={liveActions} />}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
           {activeTab === "collection" && <CollectionTab data={data} />}
-          {activeTab === "store" && <StoreTab data={data} />}
+          {activeTab === "store" && <StoreTab data={data} liveData={liveData} liveActions={liveActions} />}
         </div>
       </div>
 
@@ -436,33 +565,115 @@ function VestPageInner() {
         />
       )}
 
-      {/* Debug FAB */}
-      <button
-        onClick={() => setDebugOpen(!debugOpen)}
-        className="fixed bottom-5 right-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-dark text-white shadow-lg active:scale-95"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
-        </svg>
-      </button>
-
-      {/* Debug Panel */}
+      <DebugFab onClick={() => setDebugOpen(!debugOpen)} />
       {debugOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={() => setDebugOpen(false)}>
-          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-bold text-surface-dark">시나리오 선택</h3>
-              <button onClick={() => setDebugOpen(false)} className="text-on-surface-variant text-sm">닫기</button>
-            </div>
+        <DebugPanel
+          scenario={scenario}
+          liveMode={liveMode}
+          onSelectScenario={(key) => { setScenario(key); setDebugOpen(false); }}
+          onClose={() => setDebugOpen(false)}
+          onPom={() => { setPomOpen(true); setDebugOpen(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Debug FAB + Panel (시나리오 전환 + user_code 입력) ───
+function DebugFab({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="fixed bottom-5 right-5 z-[60] flex h-12 w-12 items-center justify-center rounded-full bg-surface-dark text-white shadow-lg active:scale-95"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
+      </svg>
+    </button>
+  );
+}
+
+// NOTE: 슈퍼유저(id4) 테스트 코드 프리필 — wc26api 인증/기간게이트 우회용.
+const TEST_USER_CODE = "eyJ1c2VyX2lkIjo0fQ:1wVvxV:2mEMOvN4lT3FaRG7Snlk6nj9pV0cYeQKcKQy8Bp-WHI";
+
+function DebugPanel({
+  scenario,
+  liveMode,
+  onSelectScenario,
+  onClose,
+  onPom,
+}: {
+  scenario: Scenario;
+  liveMode: boolean;
+  onSelectScenario: (key: Scenario) => void;
+  onClose: () => void;
+  onPom?: () => void;
+}) {
+  const [codeInput, setCodeInput] = useState("");
+  useEffect(() => {
+    setCodeInput(wc26api.getUserCode() ?? "");
+  }, []);
+
+  const saveCode = (code: string) => {
+    const trimmed = code.trim();
+    if (trimmed) {
+      wc26api.setUserCode(trimmed);
+    } else {
+      wc26api.clearUserCode();
+    }
+    // NOTE: 인증 코드 변경은 전체 데이터 소스 전환 → reload 가 가장 단순/확실.
+    window.location.reload();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-base font-bold text-surface-dark">디버그</h3>
+          <button onClick={onClose} className="text-on-surface-variant text-sm">닫기</button>
+        </div>
+
+        {/* user_code (라이브 모드 인증) */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-bold text-surface-dark">user_code (라이브 백엔드)</h4>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${liveMode ? "bg-accent-green/20 text-surface-dark" : "bg-gray-100 text-on-surface-variant"}`}>
+              {liveMode ? "LIVE" : "MOCK"}
+            </span>
+          </div>
+          <textarea
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="서명된 user_code 입력"
+            rows={3}
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-[11px] font-mono break-all resize-none focus:border-accent-blue outline-none"
+          />
+          <div className="mt-2 flex gap-2">
+            <button onClick={() => setCodeInput(TEST_USER_CODE)} className="flex-1 rounded-lg border border-gray-200 py-2 text-xs font-bold text-surface-dark">
+              테스트 코드 채우기
+            </button>
+            <button onClick={() => saveCode(codeInput)} className="flex-1 rounded-lg bg-accent-blue py-2 text-xs font-bold text-white">
+              저장 후 새로고침
+            </button>
+          </div>
+          {liveMode && (
+            <button onClick={() => saveCode("")} className="mt-2 w-full text-[11px] text-on-surface-variant underline">
+              user_code 삭제(mock 모드로)
+            </button>
+          )}
+        </div>
+
+        {/* 시나리오 선택 (mock 모드 전용) */}
+        {!liveMode && (
+          <div className="border-t border-gray-100 pt-4">
+            <h4 className="text-sm font-bold text-surface-dark mb-2">시나리오 선택</h4>
             <div className="space-y-2">
               {(Object.entries(SCENARIO_DATA) as [Scenario, typeof SCENARIO_DATA.new][]).map(([key, val]) => (
                 <button
                   key={key}
-                  onClick={() => { setScenario(key); setDebugOpen(false); }}
+                  onClick={() => onSelectScenario(key)}
                   className={`w-full rounded-xl border px-4 py-3 text-left transition-all ${
-                    scenario === key
-                      ? "border-accent-green bg-accent-green/5"
-                      : "border-gray-200 hover:border-gray-300"
+                    scenario === key ? "border-accent-green bg-accent-green/5" : "border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="text-sm font-bold text-surface-dark">{val.label}</div>
@@ -470,33 +681,28 @@ function VestPageInner() {
                 </button>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <h3 className="text-sm font-bold text-surface-dark mb-2">이벤트</h3>
-              <button
-                onClick={() => { setPomOpen(true); setDebugOpen(false); }}
-                className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left"
-              >
-                <div className="text-sm font-bold text-surface-dark">⚽ POM 획득</div>
-                <div className="text-xs text-on-surface-variant mt-0.5">매치 참여 후 POM 선정 화면</div>
-              </button>
-              <a
-                href="/match"
-                className="block w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left"
-              >
-                <div className="text-sm font-bold text-surface-dark">📋 매치 상세</div>
-                <div className="text-xs text-on-surface-variant mt-0.5">매치 디테일 페이지 (WC26 리워드 + 프로필)</div>
-              </a>
-              <a
-                href="/locker"
-                className="block w-full rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-left"
-              >
-                <div className="text-sm font-bold text-surface-dark">🚪 라커룸</div>
-                <div className="text-xs text-on-surface-variant mt-0.5">매치 라커룸 — 팀 편성, 프로필 확인</div>
-              </a>
-            </div>
           </div>
+        )}
+
+        {/* 이벤트 화면 바로가기 */}
+        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2">
+          <h4 className="text-sm font-bold text-surface-dark mb-2">이벤트</h4>
+          {onPom && (
+            <button onClick={onPom} className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-left">
+              <div className="text-sm font-bold text-surface-dark">⚽ POM 획득</div>
+              <div className="text-xs text-on-surface-variant mt-0.5">매치 참여 후 POM 선정 화면</div>
+            </button>
+          )}
+          <a href="/match" className="block w-full rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-left">
+            <div className="text-sm font-bold text-surface-dark">📋 매치 상세</div>
+            <div className="text-xs text-on-surface-variant mt-0.5">매치 디테일 페이지 (WC26 리워드 + 프로필)</div>
+          </a>
+          <a href="/locker" className="block w-full rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-left">
+            <div className="text-sm font-bold text-surface-dark">🚪 라커룸</div>
+            <div className="text-xs text-on-surface-variant mt-0.5">매치 라커룸 — 팀 편성, 프로필 확인</div>
+          </a>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -648,16 +854,44 @@ function InviteBanner({
 }
 
 // ─── Main Tab ───
-type ScenarioData = typeof SCENARIO_DATA[Scenario];
+// NOTE: 명시적 데이터 타입 — mock(SCENARIO_DATA) 과 라이브(toScenarioData) 가 공통으로 만족.
+//       typeof SCENARIO_DATA[Scenario] 의 과도하게 좁은 추론(friends.imageUrl:null 등)을 회피.
+interface ScenarioFriend {
+  name: string;
+  country: string;
+  imageUrl: string | null;
+  hasProfile?: boolean;
+  stats?: { match: number; level: number; praise: number; pom: number; manner?: number };
+}
+interface ScenarioData {
+  label: string;
+  desc: string;
+  ownedVests: string[];
+  packs: Pack[];
+  stats: { match: number; level: number; sentPraise: number; receivedPraise: number; pom: number };
+  profiles: { id: number; country: string; imageUrl: string; isActive: boolean }[];
+  profileQuota: { used: number; total: number };
+  predictions: { slot: number; country: string | null; unlocked: boolean }[];
+  friends: ScenarioFriend[];
+  hasProfile: boolean;
+  matchMission: { completed: number; total: number };
+  inviter: { name: string; country: string; imageUrl: string | null } | null;
+  tokens: number;
+  attendance: { total: number; checkedToday: boolean; weekDays: boolean[] };
+}
 
 function MainTab({
   data,
   scenario,
   onOpenProfilePicker,
+  liveData,
+  liveActions,
 }: {
   data: ScenarioData;
   scenario: Scenario;
   onOpenProfilePicker: () => void;
+  liveData?: LiveData | null;
+  liveActions?: LiveActions;
 }) {
   const [predictions, setPredictions] = useState(data.predictions.map(p => ({ ...p })));
   const [pickingSlot, setPickingSlot] = useState<number | null>(null);
@@ -685,10 +919,21 @@ function MainTab({
   const alreadyPicked = predictions.filter(p => p.country).map(p => p.country!);
   const ownedCountries = COUNTRIES.filter(c => data.ownedVests.includes(c.code));
 
-  const handleSelect = (code: string) => {
+  const handleSelect = async (code: string) => {
     if (pickingSlot === null) return;
-    setPredictions(prev => prev.map(p => p.slot === pickingSlot ? { ...p, country: code } : p));
     setPickingSlot(null);
+    if (liveActions && liveData) {
+      // NOTE: 라이브 — 슬롯번호는 서버 자동배정. 국가코드 → bib_id 변환 후 등록, refetch 가 화면 반영.
+      const bibId = liveData.bibIdByCountry[code];
+      if (bibId == null) return;
+      try {
+        await liveActions.selectPrediction(bibId);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "예측 등록 실패");
+      }
+      return;
+    }
+    setPredictions(prev => prev.map(p => p.slot === pickingSlot ? { ...p, country: code } : p));
   };
 
   return (
@@ -716,11 +961,11 @@ function MainTab({
         </section>
       )}
 
-      {/* Case 2: 매치 참여 마일스톤 */}
-      {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
+      {/* Case 2: 매치 참여 마일스톤 (라이브 모드는 항상 표시) */}
+      {(liveData != null || scenario === "active") && <MatchMission completed={data.matchMission.completed} />}
 
       {/* 미션 (출석체크 + 우승국 예측 + 친구 초대) */}
-      <MissionSection attendance={data.attendance} predictionCount={predictions.filter(p => p.country).length} onOpenPrediction={() => setPickingSlot(predictions.find(p => !p.country)?.slot ?? 1)} />
+      <MissionSection attendance={data.attendance} predictionCount={predictions.filter(p => p.country).length} onOpenPrediction={() => setPickingSlot(predictions.find(p => !p.country)?.slot ?? 1)} liveActions={liveActions} />
 
       {/* 조끼 컬렉션 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-6">
@@ -991,22 +1236,27 @@ function PackOpenScreen({
   phase,
   setPhase,
   onClose,
+  live = false,
 }: {
   pack: Pack;
   phase: "hold" | "flash" | "reveal";
   setPhase: (p: "hold" | "flash" | "reveal") => void;
   onClose: () => void;
+  live?: boolean;
 }) {
   const [spinSpeed, setSpinSpeed] = useState(0);
   const [holdTime, setHoldTime] = useState(0);
   const [pressing, setPressing] = useState(false);
-  const [rewardRoll] = useState(() => pack.mockReward.kind === "reward" ? rollRewardPackRewards() : null);
+  // NOTE: 라이브 모드는 서버가 보상을 확정하므로 mock 랜덤 롤(rollRewardPackRewards) 미사용.
+  const [rewardRoll] = useState(() => (!live && pack.mockReward.kind === "reward" ? rollRewardPackRewards() : null));
   const [showBonus, setShowBonus] = useState(false);
   const [bonusFlash, setBonusFlash] = useState(false);
   const [bonusConfetti, setBonusConfetti] = useState(false);
   const reward = pack.mockReward;
   const isNations = reward.kind === "nations";
   const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
+  // NOTE: 라이브 리워드팩의 실제 보상 라벨(예: "50토큰", "프로필 생성권 1개").
+  const liveRewardLabel = live && reward.kind === "reward" ? reward.item : null;
 
   // Increment hold time while pressing
   useEffect(() => {
@@ -1139,6 +1389,17 @@ function PackOpenScreen({
                     <RewardGenericCard label={rewardRoll.bonus} />
                   )}
                 </div>
+              ) : liveRewardLabel ? (
+                // NOTE: 라이브 — 서버가 확정한 실제 리워드 라벨을 표시(토큰/쿠폰/그 외 분기).
+                <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
+                  {liveRewardLabel.includes("토큰") ? (
+                    <RewardTokenCard label={liveRewardLabel} />
+                  ) : liveRewardLabel.includes("쿠폰") ? (
+                    <RewardCouponCard label={liveRewardLabel} />
+                  ) : (
+                    <RewardGenericCard label={liveRewardLabel} />
+                  )}
+                </div>
               ) : (
                 <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
                   <RewardTokenCard label={`${rewardRoll?.baseTokens ?? 1}토큰`} />
@@ -1185,13 +1446,45 @@ function PacksTab({
   setOpenedPack,
   packPhase,
   setPackPhase,
+  liveData,
+  liveActions,
 }: {
   data: ScenarioData;
   openedPack: Pack | null;
   setOpenedPack: (v: Pack | null) => void;
   packPhase: "hold" | "flash" | "reveal";
   setPackPhase: (v: "hold" | "flash" | "reveal") => void;
+  liveData?: LiveData | null;
+  liveActions?: LiveActions;
 }) {
+  const [opening, setOpening] = useState(false);
+
+  const handlePackClick = async (pack: Pack) => {
+    if (liveActions && liveData) {
+      // NOTE: 라이브 — 탭 즉시 서버 오픈 호출, 실제 결과를 mockReward 로 채워 기존 리빌 애니메이션 재사용.
+      if (opening) return;
+      const livePack = liveData.packs.find((p) => p.id === pack.id);
+      if (livePack && livePack.isOpenable === false) {
+        alert("아직 오픈할 수 없는 팩이에요 (오픈 가능 시각 대기 중)");
+        return;
+      }
+      setOpening(true);
+      try {
+        const result = await liveActions.openPack(pack.id, livePack?.packType);
+        const reward: NationsReward | RewardPackReward = result?.country
+          ? { kind: "nations", country: result.country }
+          : { kind: "reward", item: result?.item ?? "보상" };
+        setOpenedPack({ ...pack, mockReward: reward });
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "팩 오픈 실패");
+      } finally {
+        setOpening(false);
+      }
+      return;
+    }
+    setOpenedPack(pack);
+  };
+
   return (
     <section className="bg-white px-5 py-8">
       <div className="flex items-center justify-between">
@@ -1211,7 +1504,7 @@ function PacksTab({
           {data.packs.map((pack) => {
             const gc = pack.guaranteedCountry ? COUNTRIES.find(c => c.code === pack.guaranteedCountry) : null;
             return (
-              <button key={pack.id} onClick={() => setOpenedPack(pack)} className="relative transition-transform active:scale-95">
+              <button key={pack.id} onClick={() => handlePackClick(pack)} disabled={opening} className="relative transition-transform active:scale-95 disabled:opacity-50">
                 {gc && (
                   <div className="absolute top-0 left-0 z-10 w-5 h-5 rounded-full bg-white shadow-sm flex items-center justify-center">
                     <TwemojiFlag emoji={gc.flag} size={14} />
@@ -1226,7 +1519,7 @@ function PacksTab({
       )}
 
       {/* Pack Open Fullscreen */}
-      {openedPack && <PackOpenScreen pack={openedPack} phase={packPhase} setPhase={setPackPhase} onClose={() => setOpenedPack(null)} />}
+      {openedPack && <PackOpenScreen pack={openedPack} phase={packPhase} setPhase={setPackPhase} onClose={() => setOpenedPack(null)} live={!!liveActions} />}
     </section>
   );
 }
@@ -1345,8 +1638,9 @@ function getMockCheckedDates(total: number): Set<string> {
   return dates;
 }
 
-function MissionSection({ attendance, predictionCount, onOpenPrediction }: { attendance: ScenarioData["attendance"]; predictionCount: number; onOpenPrediction: () => void }) {
+function MissionSection({ attendance, predictionCount, onOpenPrediction, liveActions }: { attendance: ScenarioData["attendance"]; predictionCount: number; onOpenPrediction: () => void; liveActions?: LiveActions }) {
   const [justChecked, setJustChecked] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   useEscClose(calendarOpen, () => setCalendarOpen(false));
   const [calendarMonth, setCalendarMonth] = useState(5);
@@ -1363,12 +1657,23 @@ function MissionSection({ attendance, predictionCount, onOpenPrediction }: { att
     return () => { document.body.style.overflow = ""; };
   }, [calendarOpen]);
 
-  const handleAttendance = () => {
+  const handleAttendance = async () => {
     if (checked) {
       setCalendarOpen(true);
       return;
     }
-    setJustChecked(true);
+    if (liveActions) {
+      setChecking(true);
+      try {
+        await liveActions.checkAttendance();
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "출석 체크 실패");
+      } finally {
+        setChecking(false);
+      }
+    } else {
+      setJustChecked(true);
+    }
     setCalendarOpen(true);
   };
 
@@ -1416,7 +1721,7 @@ function MissionSection({ attendance, predictionCount, onOpenPrediction }: { att
       <h2 className="text-xl font-extrabold text-surface-dark">미션</h2>
 
       {/* 출석체크 */}
-      <button onClick={handleAttendance} className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform">
+      <button onClick={handleAttendance} disabled={checking} className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform disabled:opacity-60">
         <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${checked ? "bg-accent-green" : "bg-accent-green/15"}`}>
           {checked ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -2118,16 +2423,58 @@ const RARITY_COLORS: Record<string, { bg: string; text: string; label: string }>
   legendary: { bg: "bg-amber-50", text: "text-amber-600", label: "전설" },
 };
 
-function StoreTab({ data }: { data: ScenarioData }) {
-  const [selectedItem, setSelectedItem] = useState<(typeof STORE_ITEMS)[0] | null>(null);
+interface StoreDisplayItem {
+  id: number;
+  name: string;
+  price: number;
+  emoji: string;
+  description: string;
+  stock: number;
+  goodsItemId?: number; // 라이브: 실제 GoodsItem.id (교환 호출용)
+}
+
+// NOTE: 라이브 goods_type → 표시용 이모지(미존재 시 🎁).
+const GOODS_TYPE_EMOJI: Record<string, string> = {
+  PROFILE_TICKET: "🎨",
+  COUPON_2000: "🎟️",
+  COUPON_5000: "🎟️",
+  MATCH_TICKET: "⚽",
+  CREW_SOCKS: "🧦",
+  T_SHIRT: "👕",
+  WINNER_BADGE: "📌",
+  TRAINING_CAP: "🧢",
+  MATCH_BALL: "⚽",
+  GIFT_BUNDLE: "🎁",
+};
+
+function StoreTab({ data, liveData, liveActions }: { data: ScenarioData; liveData?: LiveData | null; liveActions?: LiveActions }) {
+  const [selectedItem, setSelectedItem] = useState<StoreDisplayItem | null>(null);
   const [gachaOpen, setGachaOpen] = useState(false);
   const [gachaResult, setGachaResult] = useState<(typeof GACHA_POOL)[0] | null>(null);
   const [gachaSpinning, setGachaSpinning] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [purchasing, setPurchasing] = useState(false);
   useEscClose(!!selectedItem, () => setSelectedItem(null));
   useEscClose(gachaOpen && !gachaResult, () => setGachaOpen(false));
   useEscClose(!!gachaResult, () => { setGachaResult(null); setGachaOpen(false); });
   useEscClose(historyOpen, () => setHistoryOpen(false));
+
+  // 라이브: 실제 goods 카탈로그(가챠용 GIFT_BUNDLE 은 그리드에서 제외).
+  const liveGiftBundleGoods = liveData?.storeGoods.find((g) => g.goods_type === "GIFT_BUNDLE" && g.is_active) ?? null;
+  const storeItems: StoreDisplayItem[] = liveData
+    ? liveData.storeGoods
+        .filter((g) => g.is_active && g.goods_type !== "GIFT_BUNDLE")
+        .map((g) => ({
+          id: g.id,
+          name: g.name,
+          price: g.token_price,
+          emoji: GOODS_TYPE_EMOJI[g.goods_type] ?? "🎁",
+          description: g.name,
+          stock: g.stock ?? 9999,
+          goodsItemId: g.id,
+        }))
+    : STORE_ITEMS;
+  const gachaPrice = liveGiftBundleGoods?.token_price ?? 10;
 
   useEffect(() => {
     if (selectedItem) {
@@ -2137,6 +2484,21 @@ function StoreTab({ data }: { data: ScenarioData }) {
     }
     return () => { document.body.style.overflow = ""; };
   }, [selectedItem]);
+
+  const handleExchange = async (item: StoreDisplayItem) => {
+    if (!liveActions || item.goodsItemId == null) return;
+    if (purchasing) return;
+    setPurchasing(true);
+    try {
+      await liveActions.exchangeGoods(item.goodsItemId);
+      setSelectedItem(null);
+      alert("교환 완료!");
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "교환 실패");
+    } finally {
+      setPurchasing(false);
+    }
+  };
 
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
@@ -2184,7 +2546,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
           </div>
           <div className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1.5">
             <img src="/img/token.svg" alt="token" className="h-4 w-4" draggable={false} />
-            <span className="text-sm font-russo text-accent-green">10</span>
+            <span className="text-sm font-russo text-accent-green">{gachaPrice}</span>
           </div>
         </div>
       </button>
@@ -2198,7 +2560,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
 
             <div className="px-6">
               <h3 className="text-xl font-bold text-surface-dark text-center">굿즈 뽑기</h3>
-              <p className="mt-1 text-sm text-on-surface-variant text-center">1회 10토큰으로 랜덤 굿즈를 뽑아보세요</p>
+              <p className="mt-1 text-sm text-on-surface-variant text-center">1회 {gachaPrice}토큰으로 랜덤 굿즈를 뽑아보세요</p>
             </div>
 
             {/* Gacha Machine */}
@@ -2210,8 +2572,29 @@ function StoreTab({ data }: { data: ScenarioData }) {
               </div>
 
               <button
-                onClick={() => {
-                  if (gachaSpinning || data.tokens < 10) return;
+                onClick={async () => {
+                  if (gachaSpinning || data.tokens < gachaPrice) return;
+                  if (liveActions && liveData) {
+                    // NOTE: 라이브 — 선물꾸러미 goods 교환(서버가 GIFT_BUNDLE 즉시 오픈). 결과 라벨 표시.
+                    if (!liveGiftBundleGoods) {
+                      alert("선물꾸러미 상품을 찾을 수 없어요");
+                      return;
+                    }
+                    setGachaSpinning(true);
+                    try {
+                      const res = await wc26api.post<{
+                        gift_bundle?: { label?: string };
+                      }>("/store/exchange/", { goods_item_id: liveGiftBundleGoods.id });
+                      await liveActions.refetch();
+                      const label = res.gift_bundle?.label || "선물꾸러미";
+                      setGachaResult({ name: label, emoji: "🎁", rarity: "rare" });
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : "뽑기 실패");
+                    } finally {
+                      setGachaSpinning(false);
+                    }
+                    return;
+                  }
                   setGachaSpinning(true);
                   setTimeout(() => {
                     const result = GACHA_POOL[Math.floor(Math.random() * GACHA_POOL.length)];
@@ -2219,9 +2602,9 @@ function StoreTab({ data }: { data: ScenarioData }) {
                     setGachaSpinning(false);
                   }, 2000);
                 }}
-                disabled={data.tokens < 10 || gachaSpinning}
+                disabled={data.tokens < gachaPrice || gachaSpinning}
                 className={`mt-6 w-full max-w-[280px] rounded-xl py-4 text-sm font-bold flex items-center justify-center gap-2 transition-all ${
-                  gachaSpinning ? "bg-gray-200 text-on-surface-variant" : data.tokens < 10 ? "bg-gray-200 text-on-surface-variant" : "bg-surface-dark text-white active:scale-[0.98]"
+                  gachaSpinning ? "bg-gray-200 text-on-surface-variant" : data.tokens < gachaPrice ? "bg-gray-200 text-on-surface-variant" : "bg-surface-dark text-white active:scale-[0.98]"
                 }`}
               >
                 {gachaSpinning ? (
@@ -2230,7 +2613,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
                   <>
                     뽑기
                     <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px]">
-                      <img src="/img/token.svg" alt="" className="h-3 w-3" /> 10
+                      <img src="/img/token.svg" alt="" className="h-3 w-3" /> {gachaPrice}
                     </span>
                   </>
                 )}
@@ -2351,7 +2734,7 @@ function StoreTab({ data }: { data: ScenarioData }) {
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3">
-        {STORE_ITEMS.map((item) => {
+        {storeItems.map((item) => {
           const canAfford = data.tokens >= item.price;
           return (
             <button
@@ -2410,10 +2793,11 @@ function StoreTab({ data }: { data: ScenarioData }) {
                 닫기
               </button>
               <button
+                onClick={() => { if (liveActions) handleExchange(selectedItem); }}
                 className={`flex-1 rounded-xl py-3 text-sm font-bold text-white ${data.tokens >= selectedItem.price ? "bg-accent-blue" : "bg-gray-300 cursor-default"}`}
-                disabled={data.tokens < selectedItem.price}
+                disabled={data.tokens < selectedItem.price || purchasing}
               >
-                {data.tokens >= selectedItem.price ? "구매하기" : "토큰 부족"}
+                {purchasing ? "처리 중..." : data.tokens >= selectedItem.price ? "구매하기" : "토큰 부족"}
               </button>
             </div>
           </div>
