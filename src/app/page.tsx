@@ -877,7 +877,7 @@ interface ScenarioData {
   matchMission: { completed: number; total: number };
   inviter: { name: string; country: string; imageUrl: string | null } | null;
   tokens: number;
-  attendance: { total: number; checkedToday: boolean; weekDays: boolean[] };
+  attendance: { total: number; checkedToday: boolean; weekDays: boolean[]; checkedDates?: string[] };
 }
 
 function MainTab({
@@ -1646,7 +1646,11 @@ function MissionSection({ attendance, predictionCount, onOpenPrediction, liveAct
   const [calendarMonth, setCalendarMonth] = useState(5);
   const checked = justChecked || attendance.checkedToday;
   const totalCount = attendance.total + (justChecked && !attendance.checkedToday ? 1 : 0);
-  const checkedDates = getMockCheckedDates(totalCount);
+  // NOTE: 라이브 — 서버 checked_dates(ISO) 를 캘린더 키 형식("YYYY-M-D")으로 변환해 실제 표시.
+  //       mock 모드(checkedDates 없음)는 기존 근사 헬퍼 사용.
+  const checkedDates = attendance.checkedDates
+    ? new Set(attendance.checkedDates.map((iso) => { const [y, m, d] = iso.split("-"); return `${y}-${Number(m)}-${Number(d)}`; }))
+    : getMockCheckedDates(totalCount);
 
   useEffect(() => {
     if (calendarOpen) {

@@ -105,6 +105,7 @@ interface AttendanceResponse {
   checked_today: boolean;
   total_days: number;
   today: string;
+  checked_dates: string[]; // ISO "YYYY-MM-DD" (KST), 실제 출석 일자
 }
 
 interface ProfileResponse {
@@ -163,7 +164,7 @@ export interface LiveData {
   matchMission: { completed: number; total: number };
   inviter: { name: string; country: string; imageUrl: string | null } | null;
   tokens: number;
-  attendance: { total: number; checkedToday: boolean; weekDays: boolean[] };
+  attendance: { total: number; checkedToday: boolean; weekDays: boolean[]; checkedDates: string[] };
   // ─── 라이브 전용 추가 필드 ───
   ticketBalance: number;
   welcomeGranted: boolean;
@@ -195,16 +196,22 @@ function mapPredictions(slots: PredictionSlot[]): LiveData["predictions"] {
   return out;
 }
 
-// NOTE: 서버 attendance 는 weekDays 배열을 제공하지 않는다(checked_today/total_days/today 만).
-//       FE 주간 캘린더 표시를 위해 오늘 요일까지 채운 근사 배열을 생성한다(정확한 일자별 기록 아님).
-function buildWeekDays(checkedToday: boolean, totalDays: number): boolean[] {
-  const week = [false, false, false, false, false, false, false];
-  const jsDay = new Date().getDay(); // 0=일
-  const monIndex = jsDay === 0 ? 6 : jsDay - 1; // 월=0..일=6
-  // NOTE: 이번 주에 채워진 칸 수 = min(오늘까지 지난 요일 수, total_days). 오늘은 checked_today 기준.
-  const filled = Math.min(monIndex, totalDays);
-  for (let i = 0; i < filled; i++) week[i] = true;
-  week[monIndex] = checkedToday;
+// NOTE: 서버 checked_dates(ISO, KST) + today 로 이번 주(월~일) 체크 상태를 정확히 계산.
+//       클라이언트 로컬 시간/근사치를 쓰지 않고 서버 today 를 주 기준으로 삼아 drift 제거.
+function buildWeekDays(checkedDates: string[], today: string): boolean[] {
+  const set = new Set(checkedDates);
+  const base = new Date(today + "T00:00:00"); // 서버 today(KST 일자)를 로컬 자정으로
+  const jsDay = base.getDay(); // 0=일
+  const monOffset = jsDay === 0 ? 6 : jsDay - 1; // 월요일까지 거슬러
+  const monday = new Date(base);
+  monday.setDate(base.getDate() - monOffset);
+  const week: boolean[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    week.push(set.has(iso));
+  }
   return week;
 }
 
@@ -329,7 +336,8 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
         attendance: {
           total: attendance.total_days,
           checkedToday: attendance.checked_today,
-          weekDays: buildWeekDays(attendance.checked_today, attendance.total_days),
+          weekDays: buildWeekDays(attendance.checked_dates, attendance.today),
+          checkedDates: attendance.checked_dates,
         },
         ticketBalance: me.ticket_balance,
         welcomeGranted: me.welcome_granted,
