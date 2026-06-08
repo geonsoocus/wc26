@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense, Fragment } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
@@ -719,8 +719,8 @@ function MainTab({
       {/* Case 2: 매치 참여 마일스톤 */}
       {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
 
-      {/* 출석체크 미션 */}
-      <AttendanceMission attendance={data.attendance} onRewardInfo={setRewardInfo} />
+      {/* 미션 (출석체크 + 친구 초대) */}
+      <MissionSection attendance={data.attendance} />
 
       {/* 조끼 컬렉션 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-6">
@@ -815,41 +815,6 @@ function MainTab({
             </div>
           </div>
         )}
-      </section>
-
-      {/* 친구 초대 */}
-      <section className="rounded-2xl bg-gray-50 px-5 py-6 flex flex-col gap-3">
-        <h2 className="text-xl font-extrabold text-surface-dark">친구 초대</h2>
-
-        <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-blue/10">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1570FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-surface-dark">친구에게 알리고</p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">프로필 이미지 생성권 받기</p>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-
-        <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
-          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-green/15">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
-            </svg>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-surface-dark">친구 초대하고</p>
-            <p className="mt-0.5 text-xs text-on-surface-variant">플랩 선물받기</p>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
       </section>
 
       {/* Collection Bottom Sheet */}
@@ -1380,14 +1345,13 @@ function getMockCheckedDates(total: number): Set<string> {
   return dates;
 }
 
-function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioData["attendance"]; onRewardInfo?: (info: { title: string; emoji: string; desc: string }) => void }) {
+function MissionSection({ attendance }: { attendance: ScenarioData["attendance"] }) {
   const [justChecked, setJustChecked] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   useEscClose(calendarOpen, () => setCalendarOpen(false));
-  const [calendarMonth, setCalendarMonth] = useState(5); // 0-indexed: 5=June
+  const [calendarMonth, setCalendarMonth] = useState(5);
   const checked = justChecked || attendance.checkedToday;
   const totalCount = attendance.total + (justChecked && !attendance.checkedToday ? 1 : 0);
-  const progress = Math.min(totalCount / WC_TOTAL_DAYS, 1);
   const checkedDates = getMockCheckedDates(totalCount);
 
   useEffect(() => {
@@ -1398,6 +1362,15 @@ function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioD
     }
     return () => { document.body.style.overflow = ""; };
   }, [calendarOpen]);
+
+  const handleAttendance = () => {
+    if (checked) {
+      setCalendarOpen(true);
+      return;
+    }
+    setJustChecked(true);
+    setCalendarOpen(true);
+  };
 
   const renderMonth = (monthIdx: number) => {
     const year = 2026;
@@ -1439,89 +1412,66 @@ function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioD
   };
 
   return (
-    <section className="rounded-2xl bg-gray-50 px-5 py-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-xl font-extrabold text-surface-dark">출석체크 <span className="font-medium text-on-surface-variant">{totalCount}<span className="text-on-surface-variant/40">/{WC_TOTAL_DAYS}</span></span></h2>
-          <p className="mt-1 text-sm font-medium text-on-surface-variant">매일 출석하고 네이션스팩을 받으세요</p>
-        </div>
-        <button onClick={() => onRewardInfo?.({ title: "출석 리워드", emoji: "📦", desc: "출석체크 시 네이션스팩 1개를 받을 수 있어요" })} className="flex items-center gap-1 rounded-full bg-accent-green/20 px-2.5 py-1 text-[11px] font-bold text-surface-dark active:scale-95 transition-transform flex-shrink-0">
-          🎁 리워드
-        </button>
-      </div>
+    <section className="rounded-2xl bg-gray-50 px-5 py-6 flex flex-col gap-3">
+      <h2 className="text-xl font-extrabold text-surface-dark">미션</h2>
 
-      {/* Weekly Calendar */}
-      <div className="mt-5 flex gap-1.5">
-        {WEEK_LABELS.map((label, i) => {
-          const done = attendance.weekDays[i] || (justChecked && !attendance.checkedToday && i === new Date().getDay() - 1);
-          return (
-            <div key={label} className="flex-1 flex flex-col items-center gap-1.5">
-              <span className="text-[10px] font-semibold text-on-surface-variant">{label}</span>
-              <div className={`flex h-9 w-9 items-center justify-center rounded-full transition-all ${
-                done ? "bg-accent-green" : "bg-gray-100"
-              }`}>
-                {done ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                ) : (
-                  <span className="text-xs text-on-surface-variant/40">—</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Buttons */}
-      <div className="mt-5 flex gap-2">
-        <button
-          onClick={() => !checked && setJustChecked(true)}
-          disabled={checked}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3.5 text-sm font-bold transition-all ${
-            checked
-              ? "bg-gray-100 text-on-surface-variant cursor-default"
-              : "bg-surface-dark text-white cursor-pointer active:scale-[0.98]"
-          }`}
-        >
+      {/* 출석체크 */}
+      <button onClick={handleAttendance} className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+        <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${checked ? "bg-accent-green" : "bg-accent-green/15"}`}>
           {checked ? (
-            <>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              오늘 출석 완료!
-            </>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           ) : (
-            <>
-              출석체크하기
-              <span className="flex items-center gap-1 rounded-full bg-white/20 px-2 py-0.5 text-[11px]">
-                <img src="/img/daily_pack.svg" alt="" className="h-3.5 w-3.5" />
-                네이션스팩 1개
-              </span>
-            </>
+            <span className="text-xl">📅</span>
           )}
-        </button>
-        <button
-          onClick={() => setCalendarOpen(true)}
-          className="flex items-center justify-center rounded-xl border border-gray-200 px-4 py-3.5 text-sm font-bold text-surface-dark cursor-pointer active:scale-[0.98] transition-transform"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-          </svg>
-        </button>
-      </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-surface-dark">출석체크하고</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">조끼 모으기</p>
+        </div>
+        {checked ? (
+          <span className="text-xs text-on-surface-variant bg-gray-100 rounded-full px-3 py-1.5 flex-shrink-0">출석완료</span>
+        ) : (
+          <span className="rounded-full bg-accent-blue px-4 py-1.5 text-xs font-bold text-white flex-shrink-0">출석체크</span>
+        )}
+      </button>
 
-      {/* Full Calendar Bottom Sheet */}
+      {/* 친구에게 알리기 */}
+      <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-blue/10">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1570FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-surface-dark">친구에게 알리고</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">프로필 이미지 생성권 받기</p>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+
+      {/* 친구 초대하기 */}
+      <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-green/15">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+          </svg>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-surface-dark">친구 초대하고</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">플랩 선물받기</p>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+
+      {/* Calendar Bottom Sheet */}
       {calendarOpen && (
-        <div
-          className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center"
-          onClick={() => setCalendarOpen(false)}
-        >
+        <div className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center" onClick={() => setCalendarOpen(false)}>
           <div className="absolute inset-0 bg-[rgba(0,0,0,0.4)]" />
-          <div
-            className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white px-6 pt-6 pb-10"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white px-6 pt-6 pb-10" onClick={(e) => e.stopPropagation()}>
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
 
             <div className="flex items-center justify-between">
@@ -1536,18 +1486,11 @@ function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioD
               </div>
             </div>
 
-            {/* Month Tabs */}
             <div className="mt-4 flex rounded-xl bg-gray-100 p-1">
-              <button
-                onClick={() => setCalendarMonth(5)}
-                className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 5 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}
-              >
+              <button onClick={() => setCalendarMonth(5)} className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 5 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}>
                 6월
               </button>
-              <button
-                onClick={() => setCalendarMonth(6)}
-                className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 6 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}
-              >
+              <button onClick={() => setCalendarMonth(6)} className={`flex-1 rounded-lg py-2 text-sm font-bold transition-colors ${calendarMonth === 6 ? "bg-white text-surface-dark shadow-sm" : "text-on-surface-variant"}`}>
                 7월
               </button>
             </div>
@@ -1556,10 +1499,7 @@ function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioD
               {renderMonth(calendarMonth)}
             </div>
 
-            <button
-              onClick={() => setCalendarOpen(false)}
-              className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white"
-            >
+            <button onClick={() => setCalendarOpen(false)} className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white">
               닫기
             </button>
           </div>
@@ -1570,123 +1510,187 @@ function AttendanceMission({ attendance, onRewardInfo }: { attendance: ScenarioD
 }
 
 // ─── Match Mission ───
-const MISSION_REWARDS = [
-  {
-    match: 1,
-    label: "MATCHDAY 1",
-    nations: { count: 1, desc: "랜덤 국가 조끼 1개" },
-    rewards: { count: 1, items: ["대한민국 국가대표 유니폼", "프로필 생성 토큰 1개", "2,000원 할인 쿠폰"] },
-  },
-  {
-    match: 2,
-    label: "MATCHDAY 2",
-    nations: { count: 3, desc: "랜덤 국가 조끼 3개" },
-    rewards: { count: 2, items: ["프로필 생성 토큰 2개", "5,000원 할인 쿠폰", "무료 참가 쿠폰"] },
-  },
-  {
-    match: 3,
-    label: "MATCHDAY 3",
-    nations: { count: 5, desc: "랜덤 국가 조끼 5개" },
-    rewards: { count: 3, items: ["프로필 생성 토큰 3개", "프로필 생성 토큰 5개", "무료 참가 쿠폰"] },
-  },
+const MATCHDAY_MILESTONES = [
+  { step: 1, type: "match" as const, label: "1번째 매치" },
+  { step: 2, type: "reward" as const, label: "리워드 1", reward: { nations: 1, rewardPack: 1 } },
+  { step: 3, type: "match" as const, label: "2번째 매치" },
+  { step: 4, type: "reward" as const, label: "리워드 2", reward: { nations: 3, rewardPack: 2 } },
+  { step: 5, type: "match" as const, label: "3번째 매치" },
+  { step: 6, type: "reward" as const, label: "리워드 3", reward: { nations: 5, rewardPack: 3 } },
 ];
 
 function MatchMission({ completed }: { completed: number }) {
-  const [rewardModal, setRewardModal] = useState<number | null>(null);
+  const progressStep = completed * 2;
+  const [claimed, setClaimed] = useState<Set<number>>(() => {
+    const s = new Set<number>();
+    for (let i = 1; i < completed; i++) s.add(i * 2);
+    return s;
+  });
+  const [rewardModal, setRewardModal] = useState<(typeof MATCHDAY_MILESTONES)[number] | null>(null);
   useEscClose(rewardModal !== null, () => setRewardModal(null));
-  const selectedReward = rewardModal !== null ? MISSION_REWARDS.find(r => r.match === rewardModal) : null;
+
+  const handleClaim = (ms: typeof MATCHDAY_MILESTONES[number]) => {
+    setClaimed(prev => new Set(prev).add(ms.step));
+    setRewardModal(ms);
+  };
+
+  const getNodeState = (ms: typeof MATCHDAY_MILESTONES[number]) => {
+    const isDone = ms.type === "match" ? progressStep >= ms.step : claimed.has(ms.step);
+    const isClaimable = ms.type === "reward" && progressStep >= ms.step && !claimed.has(ms.step);
+    const isLocked = !isDone && !isClaimable;
+    return { isDone, isClaimable, isLocked };
+  };
+
+  const isConnActive = (fromStep: number) => {
+    const from = MATCHDAY_MILESTONES.find(m => m.step === fromStep)!;
+    const { isDone, isClaimable } = getNodeState(from);
+    return isDone || isClaimable;
+  };
+
+  const matchNum = (step: number) => Math.ceil(step / 2);
+
+  const renderNode = (ms: typeof MATCHDAY_MILESTONES[number]) => {
+    const { isDone, isClaimable, isLocked } = getNodeState(ms);
+    const isMatch = ms.type === "match";
+
+    const NODE_H = 72;
+
+    return (
+      <button
+        key={ms.step}
+        onClick={() => {
+          if (isClaimable) handleClaim(ms);
+          else if (ms.type === "reward" && ms.reward && !isDone) setRewardModal(ms);
+        }}
+        className="flex flex-col items-center gap-1.5 flex-shrink-0"
+        style={{ width: isMatch ? 66 : 40 }}
+      >
+        <div className="flex items-center justify-center" style={{ height: NODE_H }}>
+          {isMatch ? (
+            <div className="relative" style={{ width: 66, height: 72 }}>
+              <svg width="66" height="72" viewBox="0 0 66 72" className="absolute inset-0">
+                <defs>
+                  <linearGradient id={`hex-g-${ms.step}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={isDone ? "#3a3f47" : "#2e3238"} />
+                    <stop offset="50%" stopColor={isDone ? "#22252a" : "#22252a"} />
+                    <stop offset="100%" stopColor={isDone ? "#181a1e" : "#1a1c20"} />
+                  </linearGradient>
+                  <linearGradient id={`hex-shine-${ms.step}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="white" stopOpacity="0.18" />
+                    <stop offset="50%" stopColor="white" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <polygon
+                  points="33,1 64,19 64,53 33,71 2,53 2,19"
+                  fill={`url(#hex-g-${ms.step})`}
+                  stroke={isDone ? "#96ff62" : isLocked ? "#4b5563" : "#96ff62"}
+                  strokeWidth={isDone ? "2.5" : "1.5"}
+                  opacity={isLocked ? 0.35 : 1}
+                />
+                <polygon
+                  points="33,1 64,19 64,53 33,71 2,53 2,19"
+                  fill={`url(#hex-shine-${ms.step})`}
+                  opacity={isLocked ? 0.15 : 1}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                {isDone ? (
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#96ff62" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                ) : (
+                  <span className={`text-2xl font-russo ${isLocked ? "text-gray-600" : "text-accent-green"}`} style={{ textShadow: isLocked ? "none" : "0 0 8px rgba(150,255,98,0.5)" }}>{matchNum(ms.step)}</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
+                isDone ? "border-accent-green bg-accent-green"
+                  : isClaimable ? "border-accent-green bg-accent-green shadow-[0_0_10px_rgba(150,255,98,0.4)] animate-pulse"
+                  : "border-gray-300 bg-gray-200"
+              }`}
+            >
+              {isDone ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+              ) : isClaimable ? (
+                <span className="text-base">🎁</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              )}
+            </div>
+          )}
+        </div>
+        <span className={`text-[11px] font-bold text-center leading-tight whitespace-nowrap ${isDone ? "text-surface-dark" : isClaimable ? "text-accent-blue" : "text-on-surface-variant"}`}>
+          {ms.label}
+        </span>
+        {isMatch && isDone && <span className="text-[9px] font-bold text-accent-green -mt-0.5">완료</span>}
+        {!isMatch && isDone && <span className="text-[9px] text-on-surface-variant -mt-0.5">수령완료</span>}
+        {!isMatch && isClaimable && <span className="text-[9px] font-bold text-accent-blue -mt-0.5">받기!</span>}
+        {!isMatch && isLocked && ms.reward && <span className="text-[9px] text-on-surface-variant -mt-0.5">미리보기</span>}
+      </button>
+    );
+  };
+
+  const connH = (fromStep: number) => {
+    const active = isConnActive(fromStep);
+    if (active) {
+      return <div className="w-8 self-start flex-shrink-0 bg-accent-green" style={{ height: 2, marginTop: 35 }} />;
+    }
+    return (
+      <svg width="32" height="2" className="self-start flex-shrink-0" style={{ marginTop: 35 }}>
+        <line x1="0" y1="1" x2="32" y2="1" stroke="#d1d5db" strokeWidth="2" strokeDasharray="4 3" />
+      </svg>
+    );
+  };
 
   return (
-    <section className="rounded-2xl bg-gray-50 px-5 py-6">
+    <section className="rounded-2xl bg-gray-50 px-5 py-6 overflow-hidden">
       <h2 className="text-xl font-extrabold text-surface-dark">매치데이 <span className="font-medium text-on-surface-variant">{completed}<span className="text-on-surface-variant/40">/3</span></span></h2>
-      <p className="mt-1 text-sm font-medium text-on-surface-variant">매치에 참여할 때마다 보상을 받을 수 있어요</p>
+      <p className="mt-1 text-sm font-medium text-on-surface-variant">매치에 참여하고 리워드를 받으세요</p>
 
-      <div className="mt-5 relative">
-        {/* Progress line */}
-        <div className="absolute top-6 left-6 right-6 h-1 bg-gray-200 rounded-full">
-          <div
-            className="h-full rounded-full bg-accent-green transition-all duration-500"
-            style={{ width: `${(completed / 3) * 100}%` }}
-          />
-        </div>
-
-        {/* Milestones */}
-        <div className="relative flex justify-between">
-          {MISSION_REWARDS.map((ms) => {
-            const done = completed >= ms.match;
-            const isCurrent = completed === ms.match - 1;
-            return (
-              <button
-                key={ms.match}
-                onClick={() => setRewardModal(ms.match)}
-                className="flex flex-col items-center w-24"
-              >
-                <div className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-2 transition-all ${
-                  done ? "border-accent-green bg-accent-green" : isCurrent ? "border-accent-blue bg-white" : "border-gray-200 bg-white"
-                }`}>
-                  {done ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                  ) : (
-                    <span className={`text-sm font-bold ${isCurrent ? "text-accent-blue" : "text-gray-300"}`}>{ms.match}</span>
-                  )}
-                </div>
-                <div className="mt-2 text-center">
-                  <div className={`text-[10px] font-bold ${done ? "text-surface-dark" : "text-on-surface-variant"}`}>{ms.label}</div>
-                  <div className="text-[9px] text-accent-blue font-semibold mt-0.5">리워드 보기</div>
-                </div>
-              </button>
-            );
-          })}
+      <div className="mt-5 -mx-5 px-5 overflow-x-auto scrollbar-hide">
+        <div className="flex items-start w-max">
+          {MATCHDAY_MILESTONES.map((ms, i) => (
+            <Fragment key={ms.step}>
+              {renderNode(ms)}
+              {i < MATCHDAY_MILESTONES.length - 1 && connH(ms.step)}
+            </Fragment>
+          ))}
         </div>
       </div>
 
-      <button className="mt-6 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
+      <button className="mt-4 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
         매치 참여하러 가기
       </button>
 
-      {/* Reward Detail Modal */}
-      {selectedReward && (
-        <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.4)]" onClick={() => setRewardModal(null)}>
-          <div className="w-full max-w-lg rounded-t-2xl lg:rounded-2xl bg-white p-5 pb-10 lg:pb-6" onClick={(e) => e.stopPropagation()}>
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-300 lg:hidden" />
-            <h3 className="text-base font-bold text-surface-dark">{selectedReward.label} 보상</h3>
-            <p className="mt-1 text-xs text-on-surface-variant">매치 완료 시 아래 보상을 받을 수 있어요</p>
-
-            <div className="mt-5 space-y-3">
-              {/* Nations Pack */}
-              <div className="flex items-center gap-3 rounded-xl border border-gray-100 bg-surface-hover p-4">
-                <img src="/img/daily_pack.svg" alt="Nations Pack" className="h-14 w-9 flex-shrink-0" />
-                <div>
-                  <div className="text-sm font-bold text-surface-dark">네이션스팩 x{selectedReward.nations.count}</div>
-                  <div className="text-xs text-on-surface-variant mt-0.5">{selectedReward.nations.desc}</div>
-                </div>
+      {/* Reward Modal */}
+      {rewardModal && rewardModal.type === "reward" && rewardModal.reward && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center" onClick={() => setRewardModal(null)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)]" />
+          <div className="relative w-[300px] rounded-3xl bg-white px-6 pt-8 pb-6 text-center shadow-2xl" onClick={e => e.stopPropagation()}>
+            <span className="text-5xl">{claimed.has(rewardModal.step) ? "🎉" : "🎁"}</span>
+            <h3 className="mt-4 text-lg font-bold text-surface-dark">
+              {claimed.has(rewardModal.step) ? `${rewardModal.label} 획득!` : `${rewardModal.label} 보상`}
+            </h3>
+            {!claimed.has(rewardModal.step) && (
+              <p className="mt-1 text-sm text-on-surface-variant">매치 완료 시 받을 수 있어요</p>
+            )}
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
+                <img src="/img/daily_pack.svg" alt="" className="h-10 w-7 flex-shrink-0" />
+                <span className="text-sm font-bold text-surface-dark">네이션스팩 x{rewardModal.reward.nations}</span>
               </div>
-
-              {/* Reward Pack */}
-              <div className="rounded-xl border border-gray-100 bg-surface-hover p-4">
-                <div className="flex items-center gap-3">
-                  <img src="/img/match_pack.svg" alt="Reward Pack" className="h-14 w-9 flex-shrink-0" />
-                  <div>
-                    <div className="text-sm font-bold text-surface-dark">리워드팩 x{selectedReward.rewards.count}</div>
-                    <div className="text-xs text-on-surface-variant mt-0.5">아래 보상 중 {selectedReward.rewards.count}개 획득</div>
-                  </div>
-                </div>
-                <div className="mt-3 space-y-1.5">
-                  {selectedReward.rewards.items.map((item, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg bg-white px-3 py-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-accent-blue flex-shrink-0" />
-                      <span className="text-xs text-surface-dark">{item}</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-3">
+                <img src="/img/match_pack.svg" alt="" className="h-10 w-7 flex-shrink-0" />
+                <span className="text-sm font-bold text-surface-dark">리워드팩 x{rewardModal.reward.rewardPack}</span>
               </div>
             </div>
-
             <button
               onClick={() => setRewardModal(null)}
               className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white"
             >
-              닫기
+              확인
             </button>
           </div>
         </div>

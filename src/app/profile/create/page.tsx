@@ -16,6 +16,20 @@ const GEN_CAPTIONS = [
 
 const GROUPS = [...new Set(COUNTRIES.map(c => c.group))];
 
+const MOCK_FRIENDS = [
+  { name: "커스", imageUrl: "/img/profile_cus.png", hasProfile: true },
+  { name: "히어로", imageUrl: "/img/profile_hero.png", hasProfile: true },
+  { name: "호두", imageUrl: "/img/profile_hodoo.png", hasProfile: true },
+  { name: "라임", imageUrl: "/img/profile_lime.png", hasProfile: true },
+  { name: "막국", imageUrl: "/img/profile_macgook.png", hasProfile: true },
+  { name: "큐", imageUrl: "/img/profile_q.png", hasProfile: true },
+  { name: "민수", imageUrl: null as string | null, hasProfile: false },
+  { name: "지은", imageUrl: null as string | null, hasProfile: false },
+  { name: "태영", imageUrl: null as string | null, hasProfile: false },
+  { name: "제리", imageUrl: "/img/profile_zerry.png", hasProfile: false },
+  { name: "정남", imageUrl: "/img/profile_jeongnam.png", hasProfile: false },
+];
+
 function isLightColor(hex: string): boolean {
   const c = hex.replace("#", "");
   const r = parseInt(c.substring(0, 2), 16);
@@ -56,6 +70,7 @@ function ProfileCreateInner() {
   const genCountryData = genCountry ? COUNTRIES.find(c => c.code === genCountry) : null;
 
   const [savedImageUrl, setSavedImageUrl] = useState<string | null>(null);
+  const [showGallery, setShowGallery] = useState(false);
 
   const handleSaveCard = useCallback(async () => {
     if (!cardRef.current) return;
@@ -240,21 +255,15 @@ function ProfileCreateInner() {
           </label>
 
           <div className="mt-auto w-full max-w-[320px] flex flex-col gap-3">
-            <div className="flex gap-3">
-              <button onClick={handleSaveCard} className={`flex-1 flex items-center justify-center gap-2 rounded-xl ${btnBg} py-4 text-sm font-bold`}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                저장
-              </button>
-              <button className={`flex-1 flex items-center justify-center gap-2 rounded-xl ${btnOutline} py-4 text-sm font-bold`}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
-                공유
-              </button>
-            </div>
+            <button onClick={handleSaveCard} className={`w-full flex items-center justify-center gap-2 rounded-xl ${btnBg} py-4 text-sm font-bold`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+              저장
+            </button>
             <button
-              onClick={() => router.push("/")}
+              onClick={() => setShowGallery(true)}
               className={`w-full py-2 text-sm ${txtSub}`}
             >
-              닫기
+              확인
             </button>
           </div>
 
@@ -270,6 +279,62 @@ function ProfileCreateInner() {
                   className="mt-2 rounded-xl bg-white px-8 py-3 text-sm font-bold text-[#22252a]"
                 >
                   닫기
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Friends Gallery */}
+          {showGallery && (
+            <div className="fixed inset-0 z-[90] flex flex-col bg-white">
+              <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                <h2 className="text-lg font-bold text-[#22252a]">친구에게 공유하기</h2>
+                <button onClick={() => { setShowGallery(false); router.push("/"); }} className="text-sm text-[#676d7e]">
+                  건너뛰기
+                </button>
+              </div>
+              <p className="px-5 text-sm text-[#676d7e]">친구가 프로필을 만들면 <span className="font-bold text-[#1570ff]">프로필 생성권</span>을 받아요</p>
+
+              <div className="flex-1 overflow-y-auto px-5 pt-4 pb-24">
+                {MOCK_FRIENDS.map((f) => (
+                  <div key={f.name} className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-0">
+                    <div className="relative flex-shrink-0">
+                      {f.imageUrl ? (
+                        <img src={f.imageUrl} alt={f.name} className="w-11 h-11 rounded-full object-cover" draggable={false} />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-gray-100 flex items-center justify-center">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                          </svg>
+                        </div>
+                      )}
+                      {f.hasProfile && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#96ff62] flex items-center justify-center">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-[#22252a]">{f.name}</p>
+                      <p className="text-xs text-[#676d7e]">{f.hasProfile ? "프로필 생성 완료" : "아직 프로필 미생성"}</p>
+                    </div>
+                    {f.hasProfile ? (
+                      <span className="text-xs text-[#676d7e] bg-gray-100 rounded-full px-3 py-1.5">완료</span>
+                    ) : (
+                      <button className="text-xs font-bold text-white bg-[#1570ff] rounded-full px-4 py-1.5 active:scale-95 transition-transform">
+                        공유하기
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="fixed bottom-0 inset-x-0 bg-white border-t border-gray-100 px-5 py-4">
+                <button
+                  onClick={() => { setShowGallery(false); router.push("/"); }}
+                  className="w-full rounded-xl bg-[#22252a] py-4 text-sm font-bold text-white active:scale-[0.98] transition-transform"
+                >
+                  완료
                 </button>
               </div>
             </div>
