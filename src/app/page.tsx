@@ -719,8 +719,8 @@ function MainTab({
       {/* Case 2: 매치 참여 마일스톤 */}
       {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
 
-      {/* 미션 (출석체크 + 친구 초대) */}
-      <MissionSection attendance={data.attendance} />
+      {/* 미션 (출석체크 + 우승국 예측 + 친구 초대) */}
+      <MissionSection attendance={data.attendance} predictionCount={predictions.filter(p => p.country).length} onOpenPrediction={() => setPickingSlot(predictions.find(p => !p.country)?.slot ?? 1)} />
 
       {/* 조끼 컬렉션 */}
       <section className="rounded-2xl bg-gray-50 px-5 py-6">
@@ -1345,7 +1345,7 @@ function getMockCheckedDates(total: number): Set<string> {
   return dates;
 }
 
-function MissionSection({ attendance }: { attendance: ScenarioData["attendance"] }) {
+function MissionSection({ attendance, predictionCount, onOpenPrediction }: { attendance: ScenarioData["attendance"]; predictionCount: number; onOpenPrediction: () => void }) {
   const [justChecked, setJustChecked] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
   useEscClose(calendarOpen, () => setCalendarOpen(false));
@@ -1412,11 +1412,11 @@ function MissionSection({ attendance }: { attendance: ScenarioData["attendance"]
   };
 
   return (
-    <section className="rounded-2xl bg-gray-50 px-5 py-6 flex flex-col gap-3">
+    <section className="rounded-2xl bg-gray-50 px-5 py-6 flex flex-col gap-5">
       <h2 className="text-xl font-extrabold text-surface-dark">미션</h2>
 
       {/* 출석체크 */}
-      <button onClick={handleAttendance} className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+      <button onClick={handleAttendance} className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform">
         <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${checked ? "bg-accent-green" : "bg-accent-green/15"}`}>
           {checked ? (
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -1425,7 +1425,7 @@ function MissionSection({ attendance }: { attendance: ScenarioData["attendance"]
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-surface-dark">출석체크하고</p>
+          <p className="text-base font-bold text-surface-dark">출석체크하고</p>
           <p className="mt-0.5 text-xs text-on-surface-variant">조끼 모으기</p>
         </div>
         {checked ? (
@@ -1435,15 +1435,35 @@ function MissionSection({ attendance }: { attendance: ScenarioData["attendance"]
         )}
       </button>
 
+      {/* 우승국 예측 */}
+      <button onClick={onOpenPrediction} className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform">
+        <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full ${predictionCount >= 3 ? "bg-accent-green" : "bg-yellow-100"}`}>
+          {predictionCount >= 3 ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22252a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          ) : (
+            <span className="text-xl">🏆</span>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-base font-bold text-surface-dark">우승국 예측하고</p>
+          <p className="mt-0.5 text-xs text-on-surface-variant">트로피 리워드 받기</p>
+        </div>
+        {predictionCount >= 3 ? (
+          <span className="text-xs text-on-surface-variant bg-gray-100 rounded-full px-3 py-1.5 flex-shrink-0">{predictionCount}/3</span>
+        ) : (
+          <span className="text-xs text-on-surface-variant bg-gray-100 rounded-full px-3 py-1.5 flex-shrink-0">{predictionCount}/3</span>
+        )}
+      </button>
+
       {/* 친구에게 알리기 */}
-      <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+      <button className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-blue/10">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1570FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-surface-dark">친구에게 알리고</p>
+          <p className="text-base font-bold text-surface-dark">친구에게 알리고</p>
           <p className="mt-0.5 text-xs text-on-surface-variant">프로필 이미지 생성권 받기</p>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
@@ -1452,14 +1472,14 @@ function MissionSection({ attendance }: { attendance: ScenarioData["attendance"]
       </button>
 
       {/* 친구 초대하기 */}
-      <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+      <button className="flex items-center gap-4 text-left active:scale-[0.99] transition-transform">
         <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-green/15">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-surface-dark">친구 초대하고</p>
+          <p className="text-base font-bold text-surface-dark">친구 초대하고</p>
           <p className="mt-0.5 text-xs text-on-surface-variant">플랩 선물받기</p>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
@@ -1511,11 +1531,11 @@ function MissionSection({ attendance }: { attendance: ScenarioData["attendance"]
 
 // ─── Match Mission ───
 const MATCHDAY_MILESTONES = [
-  { step: 1, type: "match" as const, label: "1번째 매치" },
+  { step: 1, type: "match" as const, label: "매치데이 1" },
   { step: 2, type: "reward" as const, label: "리워드 1", reward: { nations: 1, rewardPack: 1 } },
-  { step: 3, type: "match" as const, label: "2번째 매치" },
+  { step: 3, type: "match" as const, label: "매치데이 2" },
   { step: 4, type: "reward" as const, label: "리워드 2", reward: { nations: 3, rewardPack: 2 } },
-  { step: 5, type: "match" as const, label: "3번째 매치" },
+  { step: 5, type: "match" as const, label: "매치데이 3" },
   { step: 6, type: "reward" as const, label: "리워드 3", reward: { nations: 5, rewardPack: 3 } },
 ];
 
@@ -1569,35 +1589,18 @@ function MatchMission({ completed }: { completed: number }) {
           {isMatch ? (
             <div className="relative" style={{ width: 66, height: 72 }}>
               <svg width="66" height="72" viewBox="0 0 66 72" className="absolute inset-0">
-                <defs>
-                  <linearGradient id={`hex-g-${ms.step}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={isDone ? "#3a3f47" : "#2e3238"} />
-                    <stop offset="50%" stopColor={isDone ? "#22252a" : "#22252a"} />
-                    <stop offset="100%" stopColor={isDone ? "#181a1e" : "#1a1c20"} />
-                  </linearGradient>
-                  <linearGradient id={`hex-shine-${ms.step}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="white" stopOpacity="0.18" />
-                    <stop offset="50%" stopColor="white" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
                 <polygon
                   points="33,1 64,19 64,53 33,71 2,53 2,19"
-                  fill={`url(#hex-g-${ms.step})`}
-                  stroke={isDone ? "#96ff62" : isLocked ? "#4b5563" : "#96ff62"}
-                  strokeWidth={isDone ? "2.5" : "1.5"}
-                  opacity={isLocked ? 0.35 : 1}
-                />
-                <polygon
-                  points="33,1 64,19 64,53 33,71 2,53 2,19"
-                  fill={`url(#hex-shine-${ms.step})`}
-                  opacity={isLocked ? 0.15 : 1}
+                  fill={isLocked ? "#dfe1e5" : "#22252a"}
+                  stroke={isDone ? "#96ff62" : isLocked ? "#bcc0c7" : "#96ff62"}
+                  strokeWidth={isDone ? "3.5" : "1.5"}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 {isDone ? (
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#96ff62" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#96ff62" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 ) : (
-                  <span className={`text-2xl font-russo ${isLocked ? "text-gray-600" : "text-accent-green"}`} style={{ textShadow: isLocked ? "none" : "0 0 8px rgba(150,255,98,0.5)" }}>{matchNum(ms.step)}</span>
+                  <span className={`text-2xl font-russo ${isLocked ? "text-gray-400" : "text-accent-green"}`} style={{ textShadow: isLocked ? "none" : "0 0 8px rgba(150,255,98,0.5)" }}>{matchNum(ms.step)}</span>
                 )}
               </div>
             </div>
@@ -1622,12 +1625,8 @@ function MatchMission({ completed }: { completed: number }) {
           )}
         </div>
         <span className={`text-[11px] font-bold text-center leading-tight whitespace-nowrap ${isDone ? "text-surface-dark" : isClaimable ? "text-accent-blue" : "text-on-surface-variant"}`}>
-          {ms.label}
+          {isMatch ? ms.label : isDone ? "완료" : isClaimable ? "받기" : "미리보기"}
         </span>
-        {isMatch && isDone && <span className="text-[9px] font-bold text-accent-green -mt-0.5">완료</span>}
-        {!isMatch && isDone && <span className="text-[9px] text-on-surface-variant -mt-0.5">수령완료</span>}
-        {!isMatch && isClaimable && <span className="text-[9px] font-bold text-accent-blue -mt-0.5">받기!</span>}
-        {!isMatch && isLocked && ms.reward && <span className="text-[9px] text-on-surface-variant -mt-0.5">미리보기</span>}
       </button>
     );
   };
@@ -1660,9 +1659,18 @@ function MatchMission({ completed }: { completed: number }) {
         </div>
       </div>
 
-      <button className="mt-4 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
-        매치 참여하러 가기
-      </button>
+      {MATCHDAY_MILESTONES.some(ms => ms.type === "reward" && progressStep >= ms.step && !claimed.has(ms.step)) ? (
+        <button className="mt-4 w-full rounded-xl bg-accent-green py-3 text-sm font-bold text-surface-dark" onClick={() => {
+          const claimable = MATCHDAY_MILESTONES.find(ms => ms.type === "reward" && progressStep >= ms.step && !claimed.has(ms.step));
+          if (claimable) handleClaim(claimable);
+        }}>
+          리워드 받기
+        </button>
+      ) : (
+        <button className="mt-4 w-full rounded-xl bg-accent-blue py-3 text-sm font-bold text-white">
+          매치 참여하러 가기
+        </button>
+      )}
 
       {/* Reward Modal */}
       {rewardModal && rewardModal.type === "reward" && rewardModal.reward && (
