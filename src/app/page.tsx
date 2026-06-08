@@ -65,7 +65,7 @@ const SCENARIO_DATA = {
       { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "KOR", mockReward: { kind: "nations" as const, country: "KOR" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ] as Pack[],
-    stats: { match: 0, level: 1, sentPraise: 0, receivedPraise: 0, pom: 0 },
+    stats: { match: 0, level: "AM1", sentPraise: 0, receivedPraise: 0, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
@@ -92,7 +92,7 @@ const SCENARIO_DATA = {
       { id: 3, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "5,000원 할인 쿠폰" } },
       { id: 4, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "무료 참가 쿠폰" } },
     ] as Pack[],
-    stats: { match: 7, level: 7, sentPraise: 72, receivedPraise: 48, pom: 3 },
+    stats: { match: 7, level: "AM5", sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
       { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: false },
       { id: 2, country: "JPN", imageUrl: "/img/profile_me_japan.png", isActive: false },
@@ -149,7 +149,7 @@ const SCENARIO_DATA = {
       { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "BRA", mockReward: { kind: "nations" as const, country: "BRA" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ] as Pack[],
-    stats: { match: 2, level: 3, sentPraise: 5, receivedPraise: 8, pom: 0 },
+    stats: { match: 2, level: "AM2", sentPraise: 5, receivedPraise: 8, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
@@ -368,7 +368,7 @@ function VestPageInner() {
                 ].map((stat) => (
                   <div key={stat.label} className="flex flex-col items-center gap-1">
                     <span className="text-[10px] font-semibold tracking-wider uppercase opacity-80">{stat.label}</span>
-                    <span className="text-2xl font-russo">{stat.value}</span>
+                    <span className={`font-russo ${typeof stat.value === "string" ? "text-lg" : "text-2xl"}`}>{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -815,6 +815,41 @@ function MainTab({
             </div>
           </div>
         )}
+      </section>
+
+      {/* 친구 초대 */}
+      <section className="rounded-2xl bg-gray-50 px-5 py-6 flex flex-col gap-3">
+        <h2 className="text-xl font-extrabold text-surface-dark">친구 초대</h2>
+
+        <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-blue/10">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1570FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-surface-dark">친구에게 알리고</p>
+            <p className="mt-0.5 text-xs text-on-surface-variant">프로필 이미지 생성권 받기</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+
+        <button className="flex items-center gap-4 rounded-xl bg-white p-4 text-left active:scale-[0.99] transition-transform">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-accent-green/15">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-surface-dark">친구 초대하고</p>
+            <p className="mt-0.5 text-xs text-on-surface-variant">플랩 선물받기</p>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
       </section>
 
       {/* Collection Bottom Sheet */}
