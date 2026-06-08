@@ -234,7 +234,8 @@ function VestPageInner() {
     }
   }, [openedPack]);
 
-  const packCount = data.packs.length;
+  const [bonusPacks, setBonusPacks] = useState(0);
+  const packCount = data.packs.length + bonusPacks;
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: "main", label: "미션" },
     { key: "friends", label: "친구" },
@@ -392,7 +393,7 @@ function VestPageInner() {
                 <span className="relative">
                   {tab.label}
                   {tab.badge && (
-                    <span className="absolute -top-1.5 -right-4 flex h-4 w-4 items-center justify-center rounded-full bg-accent-blue text-[9px] font-bold text-white font-sans">
+                    <span id={tab.key === "packs" ? "pack-badge" : undefined} className="absolute -top-1.5 -right-4 flex h-4 w-4 items-center justify-center rounded-full bg-accent-blue text-[9px] font-bold text-white font-sans">
                       {tab.badge}
                     </span>
                   )}
@@ -410,6 +411,7 @@ function VestPageInner() {
               data={data}
               scenario={scenario}
               onOpenProfilePicker={() => setProfilePickerOpen(true)}
+              onAddPacks={(count) => setBonusPacks(prev => prev + count)}
             />
           )}
           {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} />}
@@ -654,10 +656,12 @@ function MainTab({
   data,
   scenario,
   onOpenProfilePicker,
+  onAddPacks,
 }: {
   data: ScenarioData;
   scenario: Scenario;
   onOpenProfilePicker: () => void;
+  onAddPacks: (count: number) => void;
 }) {
   const [predictions, setPredictions] = useState(data.predictions.map(p => ({ ...p })));
   const [pickingSlot, setPickingSlot] = useState<number | null>(null);
@@ -717,7 +721,7 @@ function MainTab({
       )}
 
       {/* Case 2: 매치 참여 마일스톤 */}
-      {scenario === "active" && <MatchMission completed={data.matchMission.completed} />}
+      {scenario === "active" && <MatchMission completed={data.matchMission.completed} onClaimReward={onAddPacks} />}
 
       {/* 미션 (출석체크 + 우승국 예측 + 친구 초대) */}
       <MissionSection attendance={data.attendance} predictionCount={predictions.filter(p => p.country).length} onOpenPrediction={() => setPickingSlot(predictions.find(p => !p.country)?.slot ?? 1)} />
@@ -1539,7 +1543,7 @@ const MATCHDAY_MILESTONES = [
   { step: 6, type: "reward" as const, label: "리워드 3", reward: { nations: 5, rewardPack: 3 } },
 ];
 
-function MatchMission({ completed }: { completed: number }) {
+function MatchMission({ completed, onClaimReward }: { completed: number; onClaimReward?: (packCount: number) => void }) {
   const progressStep = completed * 2;
   const [claimed, setClaimed] = useState<Set<number>>(() => {
     const s = new Set<number>();
@@ -1547,11 +1551,43 @@ function MatchMission({ completed }: { completed: number }) {
     return s;
   });
   const [rewardModal, setRewardModal] = useState<(typeof MATCHDAY_MILESTONES)[number] | null>(null);
+  const [flyingBoxes, setFlyingBoxes] = useState<{ id: number; x: number; y: number; tx: number; ty: number }[]>([]);
   useEscClose(rewardModal !== null, () => setRewardModal(null));
 
   const handleClaim = (ms: typeof MATCHDAY_MILESTONES[number]) => {
     setClaimed(prev => new Set(prev).add(ms.step));
     setRewardModal(ms);
+  };
+
+  const handleConfirmReward = () => {
+    if (!rewardModal?.reward) { setRewardModal(null); return; }
+    const totalPacks = rewardModal.reward.nations + rewardModal.reward.rewardPack;
+    const nodeEl = document.getElementById(`reward-node-${rewardModal.step}`);
+    const badgeEl = document.getElementById("pack-badge");
+    if (nodeEl && badgeEl) {
+      const from = nodeEl.getBoundingClientRect();
+      const to = badgeEl.getBoundingClientRect();
+      const boxes = Array.from({ length: totalPacks }, (_, i) => ({
+        id: Date.now() + i,
+        x: from.left + from.width / 2 - 12,
+        y: from.top + from.height / 2 - 12,
+        tx: to.left + to.width / 2 - 12,
+        ty: to.top + to.height / 2 - 12,
+      }));
+      setRewardModal(null);
+      boxes.forEach((box, i) => {
+        setTimeout(() => {
+          setFlyingBoxes(prev => [...prev, box]);
+          setTimeout(() => {
+            setFlyingBoxes(prev => prev.filter(b => b.id !== box.id));
+            onClaimReward?.(1);
+          }, 600);
+        }, i * 150);
+      });
+    } else {
+      setRewardModal(null);
+      onClaimReward?.(totalPacks);
+    }
   };
 
   const getNodeState = (ms: typeof MATCHDAY_MILESTONES[number]) => {
@@ -1606,6 +1642,7 @@ function MatchMission({ completed }: { completed: number }) {
             </div>
           ) : (
             <div
+              id={`reward-node-${ms.step}`}
               className={`flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all ${
                 isDone ? "border-accent-green bg-accent-green"
                   : isClaimable ? "border-accent-green bg-accent-green shadow-[0_0_10px_rgba(150,255,98,0.4)] animate-pulse"
@@ -1695,7 +1732,7 @@ function MatchMission({ completed }: { completed: number }) {
               </div>
             </div>
             <button
-              onClick={() => setRewardModal(null)}
+              onClick={handleConfirmReward}
               className="mt-5 w-full rounded-xl bg-surface-dark py-3 text-sm font-bold text-white"
             >
               확인
@@ -1703,6 +1740,30 @@ function MatchMission({ completed }: { completed: number }) {
           </div>
         </div>
       )}
+
+      {flyingBoxes.map(box => (
+        <div
+          key={box.id}
+          className="fixed z-[100] text-2xl pointer-events-none"
+          style={{
+            left: box.x,
+            top: box.y,
+            animation: "flyToTarget 600ms ease-in forwards",
+            ["--tx" as string]: `${box.tx - box.x}px`,
+            ["--ty" as string]: `${box.ty - box.y}px`,
+          }}
+        >
+          🎁
+        </div>
+      ))}
+
+      <style jsx>{`
+        @keyframes flyToTarget {
+          0% { transform: translate(0, 0) scale(1); opacity: 1; }
+          70% { opacity: 1; }
+          100% { transform: translate(var(--tx), var(--ty)) scale(0.3); opacity: 0; }
+        }
+      `}</style>
     </section>
   );
 }
