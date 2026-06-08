@@ -1,11 +1,33 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { COUNTRIES } from "@/data/countries";
 import { TwemojiFlag } from "@/components/TwemojiFlag";
+import { get, postForm, WC26ApiError } from "@/lib/wc26api";
 
-type Step = "intro" | "selectCountry" | "uploadPhoto" | "generating" | "done";
+type Step = "selectCountry" | "uploadPhoto" | "generating" | "done" | "error";
+
+interface BibItem {
+  id: number;
+  country_code: string;
+  country_name: string;
+  group: string;
+  owned: boolean;
+}
+
+interface ProfileResponse {
+  id: number;
+  request_id: string;
+  status: string;
+  generated_image_url: string;
+  bib: { country_code: string; name_ko: string; image_url: string };
+  is_free_generated: boolean;
+}
+
+interface StatusResponse {
+  status: string;
+}
 
 const GEN_CAPTIONS = [
   "유니폼을 입히는 중...",
@@ -48,29 +70,108 @@ export default function ProfileCreatePage() {
 
 function ProfileCreateInner() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const mode = searchParams.get("mode"); // "first" = random country, skip select
-  const ownedParam = searchParams.get("owned"); // comma-separated country codes
-  const ownedVests = ownedParam ? ownedParam.split(",") : [];
-  const isFirstCreate = mode === "first";
 
-  const [step, setStep] = useState<Step>(() => {
-    if (isFirstCreate) return "uploadPhoto";
-    return "selectCountry";
-  });
-  const [genCountry, setGenCountry] = useState<string | null>(() => {
-    if (isFirstCreate) {
-      const rand = COUNTRIES[Math.floor(Math.random() * COUNTRIES.length)];
-      return rand.code;
-    }
-    return null;
-  });
+  const [step, setStep] = useState<Step>("selectCountry");
+  const [bibs, setBibs] = useState<BibItem[]>([]);
+  const [selectedBibId, setSelectedBibId] = useState<number | null>(null);
+  const [genCountry, setGenCountry] = useState<string | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [captionIdx, setCaptionIdx] = useState(0);
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [savedImageUrl, setSavedImageUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const genCountryData = genCountry ? COUNTRIES.find(c => c.code === genCountry) : null;
 
-  const [savedImageUrl, setSavedImageUrl] = useState<string | null>(null);
   const [showGallery, setShowGallery] = useState(false);
+
+  // fetch owned bibs
+  useEffect(() => {
+    get<{ bibs: BibItem[]; owned_count: number }>("/bibs/")
+      .then(data => setBibs(data.bibs))
+      .catch(console.error);
+  }, []);
+
+  // caption rotation during generating
+  useEffect(() => {
+    if (step !== "generating") return;
+    setCaptionIdx(0);
+    const t = setInterval(() => setCaptionIdx(i => (i + 1) % GEN_CAPTIONS.length), 1500);
+    return () => clearInterval(t);
+  }, [step]);
+
+  // cleanup poll timer
+  useEffect(() => () => { if (pollTimerRef.current) clearTimeout(pollTimerRef.current); }, []);
+
+  const handlePhotoFile = useCallback((file: File) => {
+    setSelectedPhoto(file);
+    const url = URL.createObjectURL(file);
+    setPhotoPreviewUrl(url);
+  }, []);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handlePhotoFile(file);
+    e.target.value = "";
+  }, [handlePhotoFile]);
+
+  const pollStatus = useCallback((requestId: string, onComplete: (status: string) => void) => {
+    const check = async () => {
+      try {
+        const data = await get<StatusResponse>(`/profile/status/?request_id=${requestId}`);
+        const status = (data as StatusResponse).status;
+        if (status === "COMPLETED" || status === "FAILED") {
+          onComplete(status);
+        } else {
+          pollTimerRef.current = setTimeout(check, 2000);
+        }
+      } catch {
+        pollTimerRef.current = setTimeout(check, 3000);
+      }
+    };
+    pollTimerRef.current = setTimeout(check, 2000);
+  }, []);
+
+  const handleGenerate = useCallback(async () => {
+    setStep("generating");
+
+    try {
+      if (!selectedBibId) return;
+      const form = new FormData();
+      form.append("bib_id", String(selectedBibId));
+      if (selectedPhoto) form.append("source_image", selectedPhoto);
+      const profile = await postForm<ProfileResponse>("/profile/", form);
+
+      // poll until COMPLETED / FAILED
+      pollStatus(profile.request_id, async (status) => {
+        if (status === "COMPLETED") {
+          // fetch latest profile to get generated_image_url
+          try {
+            const updated = await get<ProfileResponse>("/profile/");
+            setGeneratedImageUrl((updated as ProfileResponse).generated_image_url || null);
+          } catch {
+            setGeneratedImageUrl(null);
+          }
+          setStep("done");
+        } else {
+          setErrorMsg("AI 합성에 실패했어요. 다시 시도해 주세요.");
+          setStep("error");
+        }
+      });
+    } catch (e) {
+      const msg = e instanceof WC26ApiError
+        ? `오류가 발생했어요 (${e.status})`
+        : "네트워크 오류가 발생했어요";
+      setErrorMsg(msg);
+      setStep("error");
+    }
+  }, [selectedBibId, selectedPhoto, pollStatus]);
 
   const handleSaveCard = useCallback(async () => {
     if (!cardRef.current) return;
@@ -79,119 +180,130 @@ function ProfileCreateInner() {
       const el = cardRef.current;
       const rect = el.getBoundingClientRect();
       const canvas = await html2canvas(el, {
-        scale: 3,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        width: rect.width,
-        height: rect.height,
+        scale: 3, useCORS: true, allowTaint: true, backgroundColor: null,
+        width: rect.width, height: rect.height,
       });
-      const dataUrl = canvas.toDataURL("image/png");
-      setSavedImageUrl(dataUrl);
+      setSavedImageUrl(canvas.toDataURL("image/png"));
     } catch (e) {
       console.error("Save failed:", e);
     }
   }, []);
 
-  useEffect(() => {
-    if (step === "generating") {
-      setCaptionIdx(0);
-      const captionTimer = setInterval(() => setCaptionIdx(i => (i + 1) % GEN_CAPTIONS.length), 1500);
-      const doneTimer = setTimeout(() => setStep("done"), 5000);
-      return () => { clearInterval(captionTimer); clearTimeout(doneTimer); };
-    }
-  }, [step]);
-
   const goBack = () => {
     if (step === "selectCountry") router.back();
-    else if (step === "uploadPhoto") {
-      if (isFirstCreate) router.back();
-      else setStep("selectCountry");
-    }
+    else if (step === "uploadPhoto") setStep("selectCountry");
   };
 
   return (
     <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col">
+      {/* hidden file inputs */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="user" className="hidden" onChange={handleFileChange} />
+      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+
       {/* Header */}
-      {step !== "generating" && step !== "done" && (
+      {step !== "generating" && step !== "done" && step !== "error" && (
         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 sticky top-0 bg-white z-10">
           <button onClick={goBack} className="text-[#22252a]">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
           <span className="text-base font-bold text-[#22252a]">
-            {step === "selectCountry" ? "국가 선택" : "사진 촬영"}
+            {step === "selectCountry" ? "국가 선택" : "사진 업로드"}
           </span>
           <div className="w-6" />
         </div>
       )}
 
-      {/* Step: Intro */}
-      {/* Step: Select Country (additional creation — owned vests only) */}
+      {/* Step: Select Country */}
       {step === "selectCountry" && (
         <div className="flex-1 px-5 pb-10">
           <p className="text-sm text-[#676d7e]">획득한 조끼의 국가로 프로필을 만들 수 있어요</p>
-
-          {ownedVests.length === 0 ? (
+          {bibs.filter(b => b.owned).length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center py-20">
               <p className="text-base font-bold text-[#22252a]">보유한 조끼가 없어요</p>
               <p className="mt-1 text-sm text-[#676d7e]">팩을 열어서 조끼를 먼저 획득해보세요</p>
             </div>
           ) : (
-          <div className="mt-5 flex flex-col gap-6">
-            {GROUPS.map(group => {
-              const groupCountries = COUNTRIES.filter(c => c.group === group && ownedVests.includes(c.code));
-              if (groupCountries.length === 0) return null;
-              return (
-                <div key={group}>
-                  <p className="text-xs font-bold text-[#676d7e] mb-2">GROUP {group}</p>
-                  <div className="grid grid-cols-4 gap-2">
-                    {groupCountries.map(country => (
-                      <button
-                        key={country.code}
-                        onClick={() => { setGenCountry(country.code); setStep("uploadPhoto"); }}
-                        className="flex flex-col items-center gap-1.5 rounded-2xl py-3 px-1 bg-gray-50 active:scale-95 transition-transform"
-                      >
-                        <TwemojiFlag emoji={country.flag} size={30} />
-                        <span className="text-[11px] font-medium text-[#22252a] text-center leading-tight">{country.nameKo}</span>
-                      </button>
-                    ))}
+            <div className="mt-5 flex flex-col gap-6">
+              {GROUPS.map(group => {
+                const groupBibs = bibs.filter(b => b.owned && b.group === group);
+                if (groupBibs.length === 0) return null;
+                return (
+                  <div key={group}>
+                    <p className="text-xs font-bold text-[#676d7e] mb-2">GROUP {group}</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {groupBibs.map(bib => {
+                        const country = COUNTRIES.find(c => c.code === bib.country_code);
+                        return (
+                          <button
+                            key={bib.id}
+                            onClick={() => { setSelectedBibId(bib.id); setGenCountry(bib.country_code); setStep("uploadPhoto"); }}
+                            className="flex flex-col items-center gap-1.5 rounded-2xl py-3 px-1 bg-gray-50 active:scale-95 transition-transform"
+                          >
+                            {country && <TwemojiFlag emoji={country.flag} size={30} />}
+                            <span className="text-[11px] font-medium text-[#22252a] text-center leading-tight">{bib.country_name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
           )}
         </div>
       )}
 
       {/* Step: Upload Photo */}
-      {step === "uploadPhoto" && genCountryData && (
-        <div className="flex-1 flex flex-col items-center justify-center px-5">
-          <div className="relative w-56 h-56 rounded-full overflow-hidden" style={{ background: genCountryData.primary }}>
-            {/* Face outline guide */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <svg width="160" height="200" viewBox="0 0 160 200" fill="none">
-                <ellipse cx="80" cy="85" rx="50" ry="62" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeDasharray="8 4" />
-                <circle cx="62" cy="75" r="4" fill="rgba(255,255,255,0.25)" />
-                <circle cx="98" cy="75" r="4" fill="rgba(255,255,255,0.25)" />
-                <path d="M70 95 Q80 105 90 95" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-            </div>
-          </div>
-          <p className="mt-5 text-sm text-[#676d7e]">정면 얼굴 사진을 촬영해주세요</p>
-
-          <button
-            onClick={() => setStep("generating")}
-            className="mt-8 w-full max-w-[280px] flex items-center justify-center gap-2 rounded-xl bg-[#22252a] py-4 text-sm font-bold text-white"
+      {step === "uploadPhoto" && (
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+          {/* Preview or guide circle */}
+          <div
+            className="relative w-56 h-56 rounded-full overflow-hidden"
+            style={{ background: genCountryData?.primary ?? "#22252a" }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
-            </svg>
-            사진 촬영하기
-          </button>
-          <button onClick={() => setStep("generating")} className="mt-3 text-sm text-[#676d7e] underline">
-            앨범에서 선택
-          </button>
+            {photoPreviewUrl ? (
+              <img src={photoPreviewUrl} alt="Preview" className="w-full h-full object-cover" />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg width="160" height="200" viewBox="0 0 160 200" fill="none">
+                  <ellipse cx="80" cy="85" rx="50" ry="62" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeDasharray="8 4" />
+                  <circle cx="62" cy="75" r="4" fill="rgba(255,255,255,0.25)" />
+                  <circle cx="98" cy="75" r="4" fill="rgba(255,255,255,0.25)" />
+                  <path d="M70 95 Q80 105 90 95" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+            )}
+          </div>
+
+          <p className="text-sm text-[#676d7e]">
+            {photoPreviewUrl ? "사진이 선택됐어요" : "정면 얼굴 사진을 촬영하거나 선택해주세요"}
+          </p>
+
+          <div className="w-full max-w-[280px] flex flex-col gap-3">
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#22252a] py-4 text-sm font-bold text-white"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
+              </svg>
+              사진 촬영하기
+            </button>
+            <button
+              onClick={() => galleryInputRef.current?.click()}
+              className="w-full py-3 text-sm text-[#676d7e] underline"
+            >
+              앨범에서 선택
+            </button>
+            {photoPreviewUrl && (
+              <button
+                onClick={handleGenerate}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1570ff] py-4 text-sm font-bold text-white"
+              >
+                AI 프로필 생성하기
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -205,13 +317,36 @@ function ProfileCreateInner() {
               <TwemojiFlag emoji={genCountryData.flag} size={48} />
             </div>
           </div>
-
           <p className="mt-8 text-lg font-bold text-[#22252a]">{genCountryData.nameKo} 프로필 생성 중</p>
           <p className="mt-2 text-sm text-[#676d7e] transition-opacity duration-300">{GEN_CAPTIONS[captionIdx]}</p>
-
           <div className="mt-6 w-48 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-            <div className="h-full rounded-full bg-[#1570ff]" style={{ animation: "genProgress 5s linear forwards" }} />
+            <div className="h-full rounded-full bg-[#1570ff]" style={{ animation: "genProgress 30s linear forwards" }} />
           </div>
+        </div>
+      )}
+
+      {/* Step: Generating (free/no country data) */}
+      {step === "generating" && !genCountryData && (
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+          <div className="w-16 h-16 rounded-full bg-[#1570ff]/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full border-4 border-[#1570ff] border-t-transparent animate-spin" />
+          </div>
+          <p className="text-base font-bold text-[#22252a]">AI 프로필 생성 중...</p>
+          <p className="text-sm text-[#676d7e]">{GEN_CAPTIONS[captionIdx]}</p>
+        </div>
+      )}
+
+      {/* Step: Error */}
+      {step === "error" && (
+        <div className="flex-1 flex flex-col items-center justify-center px-5 gap-6">
+          <p className="text-base font-bold text-[#22252a]">생성 실패</p>
+          <p className="text-sm text-[#676d7e]">{errorMsg}</p>
+          <button
+            onClick={() => setStep("selectCountry")}
+            className="rounded-xl bg-[#22252a] px-8 py-3 text-sm font-bold text-white"
+          >
+            다시 시도
+          </button>
         </div>
       )}
 
@@ -221,38 +356,37 @@ function ProfileCreateInner() {
         const txt = light ? "text-[#22252a]" : "text-white";
         const txtSub = light ? "text-[#22252a]/60" : "text-white/60";
         const btnBg = light ? "bg-[#22252a] text-white" : "bg-white text-[#22252a]";
-        const btnOutline = light ? "bg-[#22252a]/10 text-[#22252a]" : "bg-white/20 text-white";
         return (
-        <div className="flex-1 flex flex-col items-center px-5 pt-12 pb-10" style={{ background: genCountryData.primary }}>
-          <p className={`text-xs font-semibold ${txtSub} uppercase tracking-widest`}>Welcome to</p>
-          <p className={`mt-1 text-2xl font-bold ${txt}`}>{genCountryData.name}</p>
+          <div className="flex-1 flex flex-col items-center px-5 pt-12 pb-10" style={{ background: genCountryData.primary }}>
+            <p className={`text-xs font-semibold ${txtSub} uppercase tracking-widest`}>Welcome to</p>
+            <p className={`mt-1 text-2xl font-bold ${txt}`}>{genCountryData.name}</p>
 
-          <div ref={cardRef} className="mt-6 w-[240px] overflow-hidden rounded-tr-[60px] shadow-xl">
-            <div className="relative h-[312px]" style={{ background: genCountryData.primary }}>
-              <img src="/img/profile.png" alt="Generated" className="absolute inset-0 w-full h-full object-cover object-top" draggable={false} />
-              <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 bg-[#22252a]">
-                <span className="text-xl leading-none">{genCountryData.flag}</span>
+            <div ref={cardRef} className="mt-6 w-[240px] overflow-hidden rounded-tr-[60px] shadow-xl">
+              <div className="relative h-[312px]" style={{ background: genCountryData.primary }}>
+                <img
+                  src={generatedImageUrl || "/img/profile.png"}
+                  alt="Generated"
+                  className="absolute inset-0 w-full h-full object-cover object-top"
+                  draggable={false}
+                />
+                <div className="absolute top-3 left-3 flex items-center justify-center w-10 h-10 bg-[#22252a]">
+                  <span className="text-xl leading-none">{genCountryData.flag}</span>
+                </div>
+              </div>
+              <div className="bg-[#1570ff] px-4 py-2.5 flex items-center justify-between text-white text-center">
+                {[{ label: "MATCH", value: 0 }, { label: "LEVEL", value: 1 }, { label: "POM", value: 0 }].map(s => (
+                  <div key={s.label} className="flex flex-col items-center">
+                    <span className="text-[8px] font-semibold uppercase opacity-80">{s.label}</span>
+                    <span className="text-base font-russo">{s.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="bg-[#1570ff] px-4 py-2.5 flex items-center justify-between text-white text-center">
-              {[
-                { label: "MATCH", value: 0 },
-                { label: "LEVEL", value: 1 },
-                { label: "POM", value: 0 },
-              ].map(s => (
-                <div key={s.label} className="flex flex-col items-center">
-                  <span className="text-[8px] font-semibold uppercase opacity-80">{s.label}</span>
-                  <span className="text-base font-russo">{s.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Checkbox */}
-          <label className="mt-6 flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" defaultChecked className={`w-5 h-5 rounded ${light ? "accent-[#22252a]" : "accent-white"}`} />
-            <span className={`text-sm ${txt}`}>프로필 사진 설정</span>
-          </label>
+            <label className="mt-6 flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" defaultChecked className={`w-5 h-5 rounded ${light ? "accent-[#22252a]" : "accent-white"}`} />
+              <span className={`text-sm ${txt}`}>프로필 사진 설정</span>
+            </label>
 
           <div className="mt-auto w-full max-w-[320px] flex flex-col gap-3">
             <button onClick={handleSaveCard} className={`w-full flex items-center justify-center gap-2 rounded-xl ${btnBg} py-4 text-sm font-bold`}>
@@ -281,6 +415,9 @@ function ProfileCreateInner() {
                   닫기
                 </button>
               </div>
+              <button onClick={() => router.push("/")} className={`w-full py-2 text-sm ${txtSub}`}>
+                닫기
+              </button>
             </div>
           )}
 

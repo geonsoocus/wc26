@@ -48,7 +48,7 @@ export const COUNTRIES: Country[] = [
   // Group H
   { code: "ESP", name: "Spain", nameKo: "스페인", flag: "🇪🇸", group: "H", primary: "#c1272d", secondary: "#fbd116" },
   { code: "CPV", name: "Cape Verde", nameKo: "카보베르데", flag: "🇨🇻", group: "H", primary: "#003893", secondary: "#cf2027" },
-  { code: "SAU", name: "Saudi Arabia", nameKo: "사우디", flag: "🇸🇦", group: "H", primary: "#006c35", secondary: "#ffffff" },
+  { code: "KSA", name: "Saudi Arabia", nameKo: "사우디", flag: "🇸🇦", group: "H", primary: "#006c35", secondary: "#ffffff" },
   { code: "URU", name: "Uruguay", nameKo: "우루과이", flag: "🇺🇾", group: "H", primary: "#75aadb", secondary: "#ffffff" },
   // Group I
   { code: "FRA", name: "France", nameKo: "프랑스", flag: "🇫🇷", group: "I", primary: "#002395", secondary: "#ffffff" },

@@ -1,4 +1,4 @@
-// 라이브 데이터 훅 — user_code 가 있으면 백엔드(플랩 네이션스26)에서 실데이터를 가져와
+// 라이브 데이터 훅 — 로그인(plab_access 쿠키) 상태이면 백엔드(플랩 네이션스26)에서 실데이터를 가져와
 // 기존 SCENARIO_DATA mock 과 동일 shape 의 `data` 객체로 매핑한다.
 //
 // 매핑 원칙:
@@ -17,6 +17,14 @@ interface MeResponse {
   ticket_balance: number;
   has_profile: boolean;
   welcome_granted: boolean;
+  profile_card_image: string | null; // 본 플랩 Profile.profile_card_image full URL (없으면 null)
+}
+
+interface MeStatsResponse {
+  match: number;
+  sent_praise: number;
+  received_praise: number;
+  pom: number;
 }
 
 interface BibItem {
@@ -28,6 +36,7 @@ interface BibItem {
   fifa_rank: number | null;
   owned: boolean;
   owned_count: number;
+  draw_probability: number;
 }
 interface BibsResponse {
   total_count: number;
@@ -40,9 +49,6 @@ interface PackItem {
   id: number;
   pack_type: "NATIONS_RANDOM" | "NATIONS_CONFIRMED" | "REWARD_WELCOME" | "REWARD_NORMAL";
   status: "UNOPENED" | "OPENED";
-  openable_at: string | null;
-  is_openable: boolean;
-  source_match: number | null;
 }
 interface PacksResponse {
   unopened_count: number;
@@ -55,6 +61,7 @@ interface TokenHistory {
   reason: string;
   balance_after: number;
   created_at: string;
+  source_goods_name: string | null;
 }
 interface TokensResponse {
   balance: number;
@@ -108,12 +115,14 @@ interface AttendanceResponse {
   checked_dates: string[]; // ISO "YYYY-MM-DD" (KST), 실제 출석 일자
 }
 
-interface ProfileResponse {
+interface ProfileListItem {
   id: number;
+  country_code: string;
+  country_name: string;
+  bib_image_url: string;
+  generated_image_url: string; // full URL or ""
   status: string;
-  generated_image_url: string;
-  bib: { country_code: string; name_ko: string; image_url: string };
-  is_free_generated: boolean;
+  is_applied: boolean;
   created_at: string;
 }
 
@@ -123,6 +132,7 @@ interface FriendItem {
   user_cd: string | null;
   image: string | null;
   ai_profile_image: string | null;
+  profile_card_image: string | null; // 본 플랩 Profile.profile_card_image full URL (메인 카드와 동일)
   has_profile: boolean;
   manner_point: string | null; // Decimal → "4.500"
   bib_count: number;
@@ -138,8 +148,7 @@ export interface LivePack {
   label: string;
   image: string;
   guaranteedCountry?: string;
-  // NOTE: 라이브 전용 — 오픈 가능 여부/원본 pack_type(액션 분기용).
-  isOpenable?: boolean;
+  // NOTE: 라이브 전용 — 원본 pack_type(액션 분기용).
   packType?: string;
   status?: string;
   // mock 호환: PackOpenScreen 은 mockReward 를 참조하지만 라이브에서는 실오픈 결과로 대체.
@@ -150,7 +159,7 @@ export interface LiveData {
   ownedVests: string[];
   packs: LivePack[];
   stats: { match: number; level: number; sentPraise: number; receivedPraise: number; pom: number };
-  profiles: { id: number; country: string; imageUrl: string; isActive: boolean }[];
+  profiles: { id: number; country: string; countryName: string; imageUrl: string; isActive: boolean; status: string }[];
   profileQuota: { used: number; total: number };
   predictions: { slot: number; country: string | null; unlocked: boolean }[];
   friends: {
@@ -161,13 +170,15 @@ export interface LiveData {
     stats?: { match: number; level: number; praise: number; pom: number; manner?: number };
   }[];
   hasProfile: boolean;
-  matchMission: { completed: number; total: number };
+  matchMission: { completed: number; total: number; milestone1Rewarded: boolean; milestone2Rewarded: boolean; milestone3Rewarded: boolean };
   inviter: { name: string; country: string; imageUrl: string | null } | null;
   tokens: number;
   attendance: { total: number; checkedToday: boolean; weekDays: boolean[]; checkedDates: string[] };
   // ─── 라이브 전용 추가 필드 ───
   ticketBalance: number;
   welcomeGranted: boolean;
+  // NOTE: 메인 플레이어 카드 이미지 = 본 플랩 Profile.profile_card_image (full URL). 없으면 null.
+  profileCardImage: string | null;
   bibsTotal: number;
   bibsOwnedCount: number;
   bibsCompleted: boolean;
@@ -176,6 +187,8 @@ export interface LiveData {
   storeGoods: GoodsItem[];
   // NOTE: country_code → bib_id (보유 조끼). 예측 슬롯 등록(POST /prediction/slots/ {bib_id}) 에 사용.
   bibIdByCountry: Record<string, number>;
+  // NOTE: country_code → 티어별 획득 확률·FIFA 랭킹·보유 수. 컬렉션 상세 모달에서 사용.
+  bibInfoByCountry: Record<string, { fifaRank: number | null; drawProbability: number; ownedCount: number }>;
   prediction: {
     isRegistrationOpen: boolean;
     remainingSlots: number;
@@ -237,24 +250,22 @@ function mapPacks(packs: PackItem[]): LivePack[] {
             ? "웰컴 리워드팩"
             : "리워드팩",
         image: nations ? "/img/daily_pack.svg" : "/img/match_pack.svg",
-        isOpenable: p.is_openable,
         packType: p.pack_type,
         status: p.status,
       };
     });
 }
 
-function mapProfiles(profile: ProfileResponse | null): LiveData["profiles"] {
-  // NOTE: 백엔드는 유저당 단일 AI 프로필(GET /profile/)만 제공 → 0 또는 1개.
-  if (!profile) return [];
-  return [
-    {
-      id: profile.id,
-      country: profile.bib.country_code,
-      imageUrl: profile.generated_image_url || profile.bib.image_url,
-      isActive: true,
-    },
-  ];
+function mapProfiles(items: ProfileListItem[]): LiveData["profiles"] {
+  // NOTE: GET /profiles/ 목록. applied 먼저·최신순 정렬은 서버가 보장하므로 순서 그대로 유지.
+  return items.map((p) => ({
+    id: p.id,
+    country: p.country_code,
+    countryName: p.country_name,
+    imageUrl: p.generated_image_url || p.bib_image_url || "",
+    isActive: p.is_applied,
+    status: p.status,
+  }));
 }
 
 function mapFriends(friends: FriendItem[]): LiveData["friends"] {
@@ -263,7 +274,7 @@ function mapFriends(friends: FriendItem[]): LiveData["friends"] {
   return friends.map((f) => ({
     name: f.name ?? "플래버",
     country: "KOR",
-    imageUrl: f.ai_profile_image ?? f.image ?? null,
+    imageUrl: f.profile_card_image ?? f.ai_profile_image ?? f.image ?? null,
     hasProfile: f.has_profile,
     stats: {
       match: 0,
@@ -292,15 +303,7 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
     setLoading(true);
     setError(null);
     try {
-      // NOTE: /profile/ 는 미보유 시 404 → 정상 흐름이므로 null 로 흡수.
-      const profilePromise = api
-        .get<ProfileResponse>("/profile/")
-        .catch((e: unknown) => {
-          if (e instanceof api.WC26ApiError && e.status === 404) return null;
-          throw e;
-        });
-
-      const [me, bibs, packs, tokens, goods, prediction, mission, attendance, profile, friends] =
+      const [me, bibs, packs, tokens, goods, prediction, mission, attendance, profileList, friends, meStats] =
         await Promise.all([
           api.get<MeResponse>("/me/"),
           api.get<BibsResponse>("/bibs/"),
@@ -310,19 +313,32 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
           api.get<PredictionResponse>("/prediction/"),
           api.get<MissionResponse>("/mission/"),
           api.get<AttendanceResponse>("/attendance/"),
-          profilePromise,
+          // NOTE: GET /profiles/ — 빈 배열 가능(미보유). 404 아님.
+          api.get<ProfileListItem[]>("/profiles/").catch(() => [] as ProfileListItem[]),
           api.get<FriendItem[]>("/friends/").catch(() => [] as FriendItem[]),
+          // NOTE: 내 카드 스탯(이벤트 기간 매치/칭찬/POM). 실패 시 0.
+          api
+            .get<MeStatsResponse>("/me/stats/")
+            .catch(() => ({ match: 0, sent_praise: 0, received_praise: 0, pom: 0 } as MeStatsResponse)),
         ]);
 
       const ownedVests = bibs.bibs.filter((b) => b.owned).map((b) => b.country_code);
       const bibIdByCountry: Record<string, number> = {};
-      for (const b of bibs.bibs) bibIdByCountry[b.country_code] = b.id;
+      const bibInfoByCountry: Record<string, { fifaRank: number | null; drawProbability: number; ownedCount: number }> = {};
+      for (const b of bibs.bibs) {
+        bibIdByCountry[b.country_code] = b.id;
+        bibInfoByCountry[b.country_code] = {
+          fifaRank: b.fifa_rank,
+          drawProbability: b.draw_probability,
+          ownedCount: b.owned_count,
+        };
+      }
 
       const mapped: LiveData = {
         ownedVests,
         packs: mapPacks(packs.packs),
-        stats: { match: mission.match_count, level: 1, sentPraise: 0, receivedPraise: 0, pom: 0 },
-        profiles: mapProfiles(profile),
+        stats: { match: meStats.match, level: 1, sentPraise: meStats.sent_praise, receivedPraise: meStats.received_praise, pom: meStats.pom },
+        profiles: mapProfiles(profileList),
         profileQuota: {
           used: Math.max(0, PROFILE_QUOTA_TOTAL - me.ticket_balance),
           total: PROFILE_QUOTA_TOTAL,
@@ -330,7 +346,13 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
         predictions: mapPredictions(prediction.my_slots),
         friends: mapFriends(friends),
         hasProfile: me.has_profile,
-        matchMission: { completed: mission.display_step, total: 3 },
+        matchMission: {
+          completed: mission.display_step,
+          total: 3,
+          milestone1Rewarded: mission.milestone_1_rewarded,
+          milestone2Rewarded: mission.milestone_2_rewarded,
+          milestone3Rewarded: mission.milestone_3_rewarded,
+        },
         inviter: null,
         tokens: me.token_balance,
         attendance: {
@@ -341,6 +363,7 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
         },
         ticketBalance: me.ticket_balance,
         welcomeGranted: me.welcome_granted,
+        profileCardImage: me.profile_card_image,
         bibsTotal: bibs.total_count,
         bibsOwnedCount: bibs.owned_count,
         bibsCompleted: bibs.completion.is_completed,
@@ -348,6 +371,7 @@ export function useLiveData(enabled: boolean): UseLiveDataResult {
         tokenHistories: tokens.histories,
         storeGoods: goods,
         bibIdByCountry,
+        bibInfoByCountry,
         prediction: {
           isRegistrationOpen: prediction.is_registration_open,
           remainingSlots: prediction.remaining_slots,

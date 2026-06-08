@@ -28,6 +28,8 @@ interface Pack {
   image: string;
   guaranteedCountry?: string;
   mockReward: NationsReward | RewardPackReward;
+  // NOTE: 라이브 모드 전용. 토큰 외 추가 지급 아이템 라벨 목록 (AI_TICKET, GIFT_BUNDLE).
+  liveExtras?: string[];
 }
 
 interface NationsReward {
@@ -67,7 +69,7 @@ const SCENARIO_DATA = {
       { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "KOR", mockReward: { kind: "nations" as const, country: "KOR" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ] as Pack[],
-    stats: { match: 0, level: "AM1", sentPraise: 0, receivedPraise: 0, pom: 0 },
+    stats: { match: 0, level: 1, sentPraise: 0, receivedPraise: 0, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
@@ -77,7 +79,7 @@ const SCENARIO_DATA = {
     ],
     friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
-    matchMission: { completed: 0, total: 3 },
+    matchMission: { completed: 0, total: 3, milestone1Rewarded: false, milestone2Rewarded: false, milestone3Rewarded: false },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
     tokens: 0,
     tokenHistory: [] as { date: string; label: string; amount: number }[],
@@ -94,7 +96,7 @@ const SCENARIO_DATA = {
       { id: 3, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "5,000원 할인 쿠폰" } },
       { id: 4, type: "reward" as PackType, label: "리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "무료 참가 쿠폰" } },
     ] as Pack[],
-    stats: { match: 7, level: "AM5", sentPraise: 72, receivedPraise: 48, pom: 3 },
+    stats: { match: 7, level: 5, sentPraise: 72, receivedPraise: 48, pom: 3 },
     profiles: [
       { id: 1, country: "BRA", imageUrl: "/img/profile_me_brazil.png", isActive: false },
       { id: 2, country: "JPN", imageUrl: "/img/profile_me_japan.png", isActive: false },
@@ -121,7 +123,7 @@ const SCENARIO_DATA = {
       { name: "태영", country: "KOR", imageUrl: null, hasProfile: false, stats: { match: 2, level: 2, praise: 3, pom: 0, manner: 3.2 } },
     ],
     hasProfile: true,
-    matchMission: { completed: 1, total: 3 },
+    matchMission: { completed: 1, total: 3, milestone1Rewarded: false, milestone2Rewarded: false, milestone3Rewarded: false },
     inviter: null,
     tokens: 1200,
     tokenHistory: [
@@ -151,7 +153,7 @@ const SCENARIO_DATA = {
       { id: 1, type: "nations" as PackType, label: "웰컴 네이션스팩", image: "/img/daily_pack.svg", guaranteedCountry: "BRA", mockReward: { kind: "nations" as const, country: "BRA" } },
       { id: 2, type: "reward" as PackType, label: "웰컴 리워드팩", image: "/img/match_pack.svg", mockReward: { kind: "reward" as const, item: "프로필 생성 토큰 1개" } },
     ] as Pack[],
-    stats: { match: 2, level: "AM2", sentPraise: 5, receivedPraise: 8, pom: 0 },
+    stats: { match: 2, level: 2, sentPraise: 5, receivedPraise: 8, pom: 0 },
     profiles: [] as { id: number; country: string; imageUrl: string; isActive: boolean }[],
     profileQuota: { used: 0, total: 3 },
     predictions: [
@@ -161,7 +163,7 @@ const SCENARIO_DATA = {
     ],
     friends: [] as { name: string; country: string; imageUrl: string | null; hasProfile?: boolean; stats?: { match: number; level: number; praise: number; pom: number; manner?: number } }[],
     hasProfile: false,
-    matchMission: { completed: 0, total: 3 },
+    matchMission: { completed: 0, total: 3, milestone1Rewarded: false, milestone2Rewarded: false, milestone3Rewarded: false },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
     tokens: 100,
     tokenHistory: [
@@ -175,16 +177,26 @@ const SCENARIO_DATA = {
 type Tab = "main" | "packs" | "friends" | "collection" | "store";
 const VALID_TABS: Tab[] = ["main", "friends", "collection", "store", "packs"];
 
-// ─── 라이브 모드 액션 인터페이스 (user_code 있을 때 실제 API 호출) ───
+// ─── 라이브 모드 액션 인터페이스 (로그인 상태에서 실제 API 호출) ───
 // NOTE: mock 모드에서는 undefined 로 전달되어 기존 애니메이션/로컬 상태만 동작한다.
 interface LiveActions {
-  openPack: (packId: number, packType?: string) => Promise<{ country?: string; item?: string } | null>;
+  openPack: (packId: number, packType?: string) => Promise<{ country?: string; item?: string; extras?: string[] } | null>;
   checkAttendance: () => Promise<void>;
-  selectPrediction: (bibId: number) => Promise<void>;
+  claimMission: (rank: number) => Promise<void>;
+  selectPrediction: (slotNo: number, bibId: number) => Promise<void>;
+  removePrediction: (slotNo: number) => Promise<void>;
   exchangeGoods: (goodsItemId: number) => Promise<void>;
-  enter: () => Promise<void>;
   refetch: () => Promise<void>;
+  applyProfile: (profileId: number) => Promise<void>;
 }
+
+const TOKEN_REASON_LABEL: Record<string, string> = {
+  REWARD_WELCOME: "웰컴 리워드팩",
+  REWARD_NORMAL_WIN: "리워드팩 오픈",
+  REWARD_NORMAL_LOSE: "리워드팩 미당첨",
+  STORE_PURCHASE: "스토어 구매",
+  STORE_CANCEL: "스토어 환불",
+};
 
 // 라이브 데이터(LiveData)를 기존 mock 타입(ScenarioData)에 대입 가능한 형태로 어댑트.
 // NOTE: packs 의 mockReward 는 placeholder. 라이브 오픈은 openPack 액션 결과로 실제 보상을 채운다.
@@ -212,6 +224,12 @@ function toScenarioData(live: LiveData): ScenarioData {
     matchMission: live.matchMission,
     inviter: live.inviter,
     tokens: live.tokens,
+    tokenHistory: live.tokenHistories.map((h) => ({
+      date: h.created_at.split("T")[0],
+      label: h.source_goods_name ?? TOKEN_REASON_LABEL[h.reason] ?? h.reason,
+      amount: h.delta,
+    })),
+    tickets: { profileCreate: live.ticketBalance, gacha: 0 },
     attendance: live.attendance,
   };
 }
@@ -254,10 +272,10 @@ function VestPageInner() {
   useEscClose(pomOpen, () => setPomOpen(false));
   useEscClose(!!openedPack, () => setOpenedPack(null));
 
-  // ─── 라이브 모드: user_code 가 있으면 백엔드 데이터로 전환(없으면 mock 유지) ───
+  // ─── 라이브 모드: plab_access 쿠키(로그인) 있으면 백엔드 데이터로 전환(없으면 mock 유지) ───
   const [liveMode, setLiveMode] = useState(false);
   useEffect(() => {
-    setLiveMode(wc26api.hasUserCode());
+    setLiveMode(document.cookie.includes("plab_access="));
   }, []);
   const live = useLiveData(liveMode);
 
@@ -277,34 +295,43 @@ function VestPageInner() {
             return { country: res.awarded_bib.country_code };
           }
           if (res.awarded_items && res.awarded_items.length > 0) {
-            const first = res.awarded_items[0];
-            const label =
-              first.item_type === "TOKEN"
-                ? `${first.token_amount ?? 0}토큰`
-                : first.item_type === "AI_TICKET"
-                  ? `프로필 생성권 ${first.quantity}개`
-                  : "플랩 선물꾸러미";
-            return { item: label };
+            const tokenItem = res.awarded_items.find((i) => i.item_type === "TOKEN");
+            const extraItems = res.awarded_items.filter((i) => i.item_type !== "TOKEN");
+            const label = tokenItem ? `${tokenItem.token_amount ?? 0}토큰` : "보상";
+            const extras = extraItems.map((i) =>
+              i.item_type === "AI_TICKET"
+                ? `프로필 생성권 ${i.quantity}개`
+                : "플랩 선물꾸러미"
+            );
+            return { item: label, extras: extras.length > 0 ? extras : undefined };
           }
-          return packType && (packType.startsWith("NATIONS")) ? { country: "KOR" } : { item: "보상" };
+          return packType && packType.startsWith("NATIONS") ? { country: "KOR" } : { item: "보상" };
         },
         checkAttendance: async () => {
           await wc26api.post("/attendance/check/");
           await live.refetch();
         },
-        selectPrediction: async (bibId) => {
-          await wc26api.post("/prediction/slots/", { bib_id: bibId });
+        claimMission: async (rank: number) => {
+          await wc26api.post(`/mission/${rank}/claim/`);
+          await live.refetch();
+        },
+        selectPrediction: async (slotNo, bibId) => {
+          await wc26api.put(`/prediction/slots/${slotNo}/`, { bib_id: bibId });
+          await live.refetch();
+        },
+        removePrediction: async (slotNo) => {
+          await wc26api.del(`/prediction/slots/${slotNo}/`);
           await live.refetch();
         },
         exchangeGoods: async (goodsItemId) => {
           await wc26api.post("/store/exchange/", { goods_item_id: goodsItemId });
           await live.refetch();
         },
-        enter: async () => {
-          await wc26api.post("/enter/");
+        refetch: async () => {
           await live.refetch();
         },
-        refetch: async () => {
+        applyProfile: async (profileId: number) => {
+          await wc26api.post(`/profiles/${profileId}/apply/`);
           await live.refetch();
         },
       }
@@ -316,16 +343,13 @@ function VestPageInner() {
     if (!liveMode) setShowIntro(!SCENARIO_DATA[scenario].hasProfile);
   }, [liveMode, scenario]);
 
-  // 라이브 최초 진입 시 웰컴 세트 미발급이면 자동 /enter/ 1회(멱등). 발급 후 refetch.
-  const enteredRef = useRef(false);
+  // 라이브 모드: 온보딩 미완료 유저는 /onboarding 으로 리다이렉트.
   useEffect(() => {
-    if (!liveMode || !live.data || enteredRef.current) return;
+    if (!liveMode || !live.data) return;
     if (!live.data.welcomeGranted) {
-      enteredRef.current = true;
-      void wc26api.post("/enter/").then(() => live.refetch()).catch(() => {});
+      router.push("/onboarding");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveMode, live.data]);
+  }, [liveMode, live.data, router]);
 
   const [activeProfileId, setActiveProfileId] = useState(0);
   useEffect(() => {
@@ -361,8 +385,11 @@ function VestPageInner() {
     { key: "store", label: "스토어" },
   ];
 
-  // 라이브 모드 로딩/에러 게이트 (Debug FAB 로 user_code 재설정 가능).
-  if (liveMode && (live.loading || live.error || !live.data)) {
+  // 라이브 모드 로딩/에러 게이트.
+  // NOTE: 데이터가 아직 없을 때(최초 로드)만 전체화면 로더/에러를 띄운다. 액션 후
+  //       refetch 중에는 live.data 가 남아 있으므로 화면을 가리지 않고 현재 화면을
+  //       유지한다(stale-while-revalidate). 클릭마다 화면 전환되던 문제 방지.
+  if (liveMode && !live.data) {
     return (
       <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col items-center justify-center px-8 text-center">
         {live.error ? (
@@ -373,9 +400,9 @@ function VestPageInner() {
             <button onClick={() => live.refetch()} className="mt-4 rounded-xl bg-accent-blue px-6 py-3 text-sm font-bold text-white">
               다시 시도
             </button>
-            <button onClick={() => setDebugOpen(true)} className="mt-2 text-xs text-on-surface-variant underline">
-              user_code 변경
-            </button>
+            <a href="http://localhost:8000/accounts/login/" className="mt-2 text-xs text-on-surface-variant underline">
+              localhost:8000 에서 로그인
+            </a>
           </>
         ) : (
           <>
@@ -399,7 +426,7 @@ function VestPageInner() {
   if (showIntro) {
     return (
       <div className="max-w-[480px] mx-auto bg-white min-h-screen flex flex-col">
-        <ProfileIntroScreen onStart={() => setShowIntro(false)} />
+        <ProfileIntroScreen />
         <DebugFab onClick={() => setDebugOpen(!debugOpen)} />
         {debugOpen && (
           <DebugPanel
@@ -469,7 +496,7 @@ function VestPageInner() {
                     </button>
                   ) : (
                     <button onClick={() => setProfilePickerOpen(true)} className="active:scale-95 transition-transform">
-                      <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
+                      <img src={liveData?.profileCardImage ?? data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
                     </button>
                   )
                 ) : (
@@ -543,7 +570,7 @@ function VestPageInner() {
           )}
           {activeTab === "packs" && <PacksTab data={data} openedPack={openedPack} setOpenedPack={setOpenedPack} packPhase={packPhase} setPackPhase={setPackPhase} liveData={liveData} liveActions={liveActions} />}
           {activeTab === "friends" && <FriendsTab data={data} scenario={scenario} />}
-          {activeTab === "collection" && <CollectionTab data={data} />}
+          {activeTab === "collection" && <CollectionTab data={data} liveData={liveData} />}
           {activeTab === "store" && <StoreTab data={data} liveData={liveData} liveActions={liveActions} />}
         </div>
       </div>
@@ -554,6 +581,7 @@ function VestPageInner() {
         activeProfileId={activeProfileId}
         onSelect={(id) => { setActiveProfileId(id); setProfilePickerOpen(false); }}
         onClose={() => setProfilePickerOpen(false)}
+        liveActions={liveActions}
       />}
 
       {/* POM Screen */}
@@ -579,7 +607,7 @@ function VestPageInner() {
   );
 }
 
-// ─── Debug FAB + Panel (시나리오 전환 + user_code 입력) ───
+// ─── Debug FAB + Panel (시나리오 전환) ───
 function DebugFab({ onClick }: { onClick: () => void }) {
   return (
     <button
@@ -592,9 +620,6 @@ function DebugFab({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
-
-// NOTE: 슈퍼유저(id4) 테스트 코드 프리필 — wc26api 인증/기간게이트 우회용.
-const TEST_USER_CODE = "eyJ1c2VyX2lkIjo0fQ:1wVvxV:2mEMOvN4lT3FaRG7Snlk6nj9pV0cYeQKcKQy8Bp-WHI";
 
 function DebugPanel({
   scenario,
@@ -609,21 +634,7 @@ function DebugPanel({
   onClose: () => void;
   onPom?: () => void;
 }) {
-  const [codeInput, setCodeInput] = useState("");
-  useEffect(() => {
-    setCodeInput(wc26api.getUserCode() ?? "");
-  }, []);
 
-  const saveCode = (code: string) => {
-    const trimmed = code.trim();
-    if (trimmed) {
-      wc26api.setUserCode(trimmed);
-    } else {
-      wc26api.clearUserCode();
-    }
-    // NOTE: 인증 코드 변경은 전체 데이터 소스 전환 → reload 가 가장 단순/확실.
-    window.location.reload();
-  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end lg:items-center justify-center bg-[rgba(0,0,0,0.5)]" onClick={onClose}>
@@ -633,33 +644,18 @@ function DebugPanel({
           <button onClick={onClose} className="text-on-surface-variant text-sm">닫기</button>
         </div>
 
-        {/* user_code (라이브 모드 인증) */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-bold text-surface-dark">user_code (라이브 백엔드)</h4>
+        {/* 라이브 모드 상태 */}
+        <div className="mb-4 rounded-xl border border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-bold text-surface-dark">백엔드 연동</span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${liveMode ? "bg-accent-green/20 text-surface-dark" : "bg-gray-100 text-on-surface-variant"}`}>
               {liveMode ? "LIVE" : "MOCK"}
             </span>
           </div>
-          <textarea
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            placeholder="서명된 user_code 입력"
-            rows={3}
-            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-[11px] font-mono break-all resize-none focus:border-accent-blue outline-none"
-          />
-          <div className="mt-2 flex gap-2">
-            <button onClick={() => setCodeInput(TEST_USER_CODE)} className="flex-1 rounded-lg border border-gray-200 py-2 text-xs font-bold text-surface-dark">
-              테스트 코드 채우기
-            </button>
-            <button onClick={() => saveCode(codeInput)} className="flex-1 rounded-lg bg-accent-blue py-2 text-xs font-bold text-white">
-              저장 후 새로고침
-            </button>
-          </div>
-          {liveMode && (
-            <button onClick={() => saveCode("")} className="mt-2 w-full text-[11px] text-on-surface-variant underline">
-              user_code 삭제(mock 모드로)
-            </button>
+          {!liveMode && (
+            <p className="mt-1 text-xs text-on-surface-variant">
+              <a href="http://localhost:8000/accounts/login/" className="underline">localhost:8000 로그인</a> 후 새로고침하면 라이브 모드로 전환됩니다.
+            </p>
           )}
         </div>
 
@@ -708,7 +704,7 @@ function DebugPanel({
 }
 
 // ─── Profile Intro Screen ───
-function ProfileIntroScreen({ onStart }: { onStart: () => void }) {
+function ProfileIntroScreen() {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-8">
       <div style={{ perspective: "600px" }}>
@@ -753,7 +749,7 @@ function ProfileIntroScreen({ onStart }: { onStart: () => void }) {
       </div>
 
       <a
-        href="/profile/create?mode=first"
+        href="/onboarding"
         className="mt-10 w-full max-w-[320px] rounded-xl bg-accent-green py-4 text-base font-bold text-surface-dark text-center block"
       >
         시작하기
@@ -874,9 +870,11 @@ interface ScenarioData {
   predictions: { slot: number; country: string | null; unlocked: boolean }[];
   friends: ScenarioFriend[];
   hasProfile: boolean;
-  matchMission: { completed: number; total: number };
+  matchMission: { completed: number; total: number; milestone1Rewarded: boolean; milestone2Rewarded: boolean; milestone3Rewarded: boolean };
   inviter: { name: string; country: string; imageUrl: string | null } | null;
   tokens: number;
+  tokenHistory: { date: string; label: string; amount: number }[];
+  tickets: { profileCreate: number; gacha: number };
   attendance: { total: number; checkedToday: boolean; weekDays: boolean[]; checkedDates?: string[] };
 }
 
@@ -921,19 +919,20 @@ function MainTab({
 
   const handleSelect = async (code: string) => {
     if (pickingSlot === null) return;
+    const slot = pickingSlot;
     setPickingSlot(null);
     if (liveActions && liveData) {
-      // NOTE: 라이브 — 슬롯번호는 서버 자동배정. 국가코드 → bib_id 변환 후 등록, refetch 가 화면 반영.
+      // NOTE: 라이브 — 슬롯번호를 직접 전달해 PUT /prediction/slots/{slot_no}/ 로 set/replace.
       const bibId = liveData.bibIdByCountry[code];
       if (bibId == null) return;
       try {
-        await liveActions.selectPrediction(bibId);
+        await liveActions.selectPrediction(slot, bibId);
       } catch (e) {
         alert(e instanceof Error ? e.message : "예측 등록 실패");
       }
       return;
     }
-    setPredictions(prev => prev.map(p => p.slot === pickingSlot ? { ...p, country: code } : p));
+    setPredictions(prev => prev.map(p => p.slot === slot ? { ...p, country: code } : p));
   };
 
   return (
@@ -962,7 +961,15 @@ function MainTab({
       )}
 
       {/* Case 2: 매치 참여 마일스톤 (라이브 모드는 항상 표시) */}
-      {(liveData != null || scenario === "active") && <MatchMission completed={data.matchMission.completed} />}
+      {(liveData != null || scenario === "active") && (
+        <MatchMission
+          completed={data.matchMission.completed}
+          milestone1Rewarded={data.matchMission.milestone1Rewarded}
+          milestone2Rewarded={data.matchMission.milestone2Rewarded}
+          milestone3Rewarded={data.matchMission.milestone3Rewarded}
+          onClaim={liveActions?.claimMission}
+        />
+      )}
 
       {/* 미션 (출석체크 + 우승국 예측 + 친구 초대) */}
       <MissionSection attendance={data.attendance} predictionCount={predictions.filter(p => p.country).length} onOpenPrediction={() => setPickingSlot(predictions.find(p => !p.country)?.slot ?? 1)} liveActions={liveActions} />
@@ -1138,6 +1145,29 @@ function MainTab({
                 </div>
               </div>
             )}
+            {/* NOTE: 현재 슬롯에 이미 선택된 국가가 있을 때 "선택 해제" 버튼 노출 */}
+            {pickingSlot !== null && predictions.find(p => p.slot === pickingSlot)?.country && (
+              <div className="pt-3">
+                <button
+                  onClick={async () => {
+                    const slot = pickingSlot;
+                    setPickingSlot(null);
+                    if (liveActions) {
+                      try {
+                        await liveActions.removePrediction(slot);
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "예측 해제 실패");
+                      }
+                    } else {
+                      setPredictions(prev => prev.map(p => p.slot === slot ? { ...p, country: null } : p));
+                    }
+                  }}
+                  className="w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-on-surface-variant"
+                >
+                  선택 해제
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1252,11 +1282,18 @@ function PackOpenScreen({
   const [showBonus, setShowBonus] = useState(false);
   const [bonusFlash, setBonusFlash] = useState(false);
   const [bonusConfetti, setBonusConfetti] = useState(false);
+  // NOTE: 라이브 추가 선물 순서 추적. 0=기본보상 표시 중, 1+=해당 인덱스 extra 표시 중.
+  const [liveExtraIndex, setLiveExtraIndex] = useState(0);
   const reward = pack.mockReward;
   const isNations = reward.kind === "nations";
   const rewardCountry = isNations ? COUNTRIES.find((c) => c.code === reward.country) : null;
   // NOTE: 라이브 리워드팩의 실제 보상 라벨(예: "50토큰", "프로필 생성권 1개").
   const liveRewardLabel = live && reward.kind === "reward" ? reward.item : null;
+  const liveExtras = pack.liveExtras ?? [];
+  // 현재 표시 중인 추가 선물 라벨 (showBonus=true일 때 유효).
+  const currentLiveExtra = live && showBonus ? liveExtras[liveExtraIndex - 1] : null;
+  // 아직 보여줄 추가 선물이 남아있는지.
+  const hasNextLiveExtra = live && liveExtraIndex < liveExtras.length;
 
   // Increment hold time while pressing
   useEffect(() => {
@@ -1381,6 +1418,11 @@ function PackOpenScreen({
                   </div>
                   <div className="mt-6 text-3xl font-russo text-white uppercase tracking-wider">{rewardCountry.name}</div>
                 </>
+              ) : showBonus && currentLiveExtra ? (
+                // NOTE: 라이브 — 추가 선물(AI_TICKET / GIFT_BUNDLE) 순차 표시.
+                <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
+                  <RewardGenericCard label={currentLiveExtra} />
+                </div>
               ) : showBonus && rewardRoll?.bonus ? (
                 <div className="mx-auto animate-vest-pop flex flex-col items-center w-full max-w-[280px]">
                   {rewardRoll.bonus.includes("쿠폰") ? (
@@ -1410,7 +1452,7 @@ function PackOpenScreen({
 
           {/* Bottom button */}
           <div className="absolute bottom-0 inset-x-0 p-5 pb-10">
-            {!isNations && !showBonus && !bonusFlash && rewardRoll?.bonus ? (
+            {!isNations && !bonusFlash && (live ? hasNextLiveExtra : (!showBonus && rewardRoll?.bonus != null)) ? (
               <button
                 onClick={() => {
                   setBonusFlash(true);
@@ -1418,11 +1460,12 @@ function PackOpenScreen({
                     setBonusFlash(false);
                     setShowBonus(true);
                     setBonusConfetti(true);
+                    if (live) setLiveExtraIndex((i) => i + 1);
                   }, 500);
                 }}
                 className="w-full rounded-xl bg-[#FFBE1A] py-4 text-sm font-bold text-surface-dark flex items-center justify-center gap-2"
               >
-                <span className="text-lg">🎁</span> 보너스! 한번 더!
+                <span className="text-lg">🎁</span> 추가 선물 받기!
               </button>
             ) : (
               <button
@@ -1464,17 +1507,13 @@ function PacksTab({
       // NOTE: 라이브 — 탭 즉시 서버 오픈 호출, 실제 결과를 mockReward 로 채워 기존 리빌 애니메이션 재사용.
       if (opening) return;
       const livePack = liveData.packs.find((p) => p.id === pack.id);
-      if (livePack && livePack.isOpenable === false) {
-        alert("아직 오픈할 수 없는 팩이에요 (오픈 가능 시각 대기 중)");
-        return;
-      }
       setOpening(true);
       try {
         const result = await liveActions.openPack(pack.id, livePack?.packType);
         const reward: NationsReward | RewardPackReward = result?.country
           ? { kind: "nations", country: result.country }
           : { kind: "reward", item: result?.item ?? "보상" };
-        setOpenedPack({ ...pack, mockReward: reward });
+        setOpenedPack({ ...pack, mockReward: reward, liveExtras: result?.extras });
       } catch (e) {
         alert(e instanceof Error ? e.message : "팩 오픈 실패");
       } finally {
@@ -1530,13 +1569,16 @@ function ProfilePickerModal({
   activeProfileId,
   onSelect,
   onClose,
+  liveActions,
 }: {
   data: ScenarioData;
   activeProfileId: number;
   onSelect: (id: number) => void;
   onClose: () => void;
+  liveActions?: LiveActions;
 }) {
   const remaining = data.profileQuota.total - data.profileQuota.used;
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -1547,6 +1589,23 @@ function ProfilePickerModal({
     if (typeof window !== "undefined") window.location.href = "/profile/create";
     return null;
   }
+
+  const handleCardTap = async (profileId: number) => {
+    if (liveActions) {
+      if (applying) return;
+      setApplying(true);
+      try {
+        await liveActions.applyProfile(profileId);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "프로필 적용 실패");
+      } finally {
+        setApplying(false);
+      }
+      onSelect(profileId);
+    } else {
+      onSelect(profileId);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[55] flex items-end lg:items-center justify-center" onClick={onClose}>
@@ -1583,24 +1642,39 @@ function ProfilePickerModal({
           </button>
 
           {data.profiles.map((profile) => {
-            const country = COUNTRIES.find((c) => c.code === profile.country)!;
+            const country = COUNTRIES.find((c) => c.code === profile.country);
+            const countryFlag = country?.flag ?? "🏳️";
+            const countryName = country?.nameKo ?? profile.country;
+            // NOTE: isActive(is_applied) 기준 배지. 라이브: applyProfile 후 refetch 로 갱신.
+            const isApplied = profile.isActive;
             const isSelected = profile.id === activeProfileId;
             return (
-              <button key={profile.id} onClick={() => onSelect(profile.id)} className="flex flex-col items-center gap-1.5">
+              <button
+                key={profile.id}
+                onClick={() => handleCardTap(profile.id)}
+                disabled={applying}
+                className="flex flex-col items-center gap-1.5 disabled:opacity-60"
+              >
                 <div className={`relative w-full rounded-tr-[20px] overflow-hidden border-2 transition-all ${
-                  isSelected ? "border-accent-green shadow-md" : "border-transparent"
+                  isApplied ? "border-accent-green shadow-md" : isSelected ? "border-accent-blue shadow-md" : "border-transparent"
                 }`} style={{ paddingBottom: "125%" }}>
-                  <img src={profile.imageUrl} alt={country.nameKo} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                  {profile.imageUrl ? (
+                    <img src={profile.imageUrl} alt={countryName} className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+                      <TwemojiFlag emoji={countryFlag} size={48} />
+                    </div>
+                  )}
                   <div className="absolute top-2 left-2">
-                    <TwemojiFlag emoji={country.flag} size={18} />
+                    <TwemojiFlag emoji={countryFlag} size={18} />
                   </div>
-                  {isSelected && (
+                  {isApplied && (
                     <div className="absolute bottom-0 inset-x-0 bg-accent-green py-1 text-center">
                       <span className="text-[9px] font-bold text-surface-dark">적용중</span>
                     </div>
                   )}
                 </div>
-                <span className="text-xs font-medium text-on-surface-variant">{country.nameKo}</span>
+                <span className="text-xs font-medium text-on-surface-variant">{countryName}</span>
               </button>
             );
           })}
@@ -1848,17 +1922,40 @@ const MATCHDAY_MILESTONES = [
   { step: 6, type: "reward" as const, label: "리워드 3", reward: { nations: 5, rewardPack: 3 } },
 ];
 
-function MatchMission({ completed }: { completed: number }) {
+function MatchMission({
+  completed,
+  milestone1Rewarded = false,
+  milestone2Rewarded = false,
+  milestone3Rewarded = false,
+  onClaim,
+}: {
+  completed: number;
+  milestone1Rewarded?: boolean;
+  milestone2Rewarded?: boolean;
+  milestone3Rewarded?: boolean;
+  onClaim?: (rank: number) => Promise<void>;
+}) {
   const progressStep = completed * 2;
   const [claimed, setClaimed] = useState<Set<number>>(() => {
     const s = new Set<number>();
-    for (let i = 1; i < completed; i++) s.add(i * 2);
+    if (milestone1Rewarded) s.add(2);
+    if (milestone2Rewarded) s.add(4);
+    if (milestone3Rewarded) s.add(6);
     return s;
   });
   const [rewardModal, setRewardModal] = useState<(typeof MATCHDAY_MILESTONES)[number] | null>(null);
   useEscClose(rewardModal !== null, () => setRewardModal(null));
 
-  const handleClaim = (ms: typeof MATCHDAY_MILESTONES[number]) => {
+  const handleClaim = async (ms: typeof MATCHDAY_MILESTONES[number]) => {
+    if (onClaim) {
+      const rank = ms.step / 2;
+      try {
+        await onClaim(rank);
+      } catch (e) {
+        alert(e instanceof Error ? e.message : "클레임 실패");
+        return;
+      }
+    }
     setClaimed(prev => new Set(prev).add(ms.step));
     setRewardModal(ms);
   };
@@ -1888,7 +1985,7 @@ function MatchMission({ completed }: { completed: number }) {
       <button
         key={ms.step}
         onClick={() => {
-          if (isClaimable) handleClaim(ms);
+          if (isClaimable) void handleClaim(ms);
           else if (ms.type === "reward" && ms.reward && !isDone) setRewardModal(ms);
         }}
         className="flex flex-col items-center gap-1.5 flex-shrink-0"
@@ -1971,7 +2068,7 @@ function MatchMission({ completed }: { completed: number }) {
       {MATCHDAY_MILESTONES.some(ms => ms.type === "reward" && progressStep >= ms.step && !claimed.has(ms.step)) ? (
         <button className="mt-4 w-full rounded-xl bg-accent-green py-3 text-sm font-bold text-surface-dark" onClick={() => {
           const claimable = MATCHDAY_MILESTONES.find(ms => ms.type === "reward" && progressStep >= ms.step && !claimed.has(ms.step));
-          if (claimable) handleClaim(claimable);
+          if (claimable) void handleClaim(claimable);
         }}>
           리워드 받기
         </button>
@@ -2266,9 +2363,10 @@ const MOCK_FIFA_RANK: Record<string, number> = {
   PAN: 41, ECU: 42, CRC: 43, JAM: 44, BIH: 45, NZL: 46, SAU: 47, QAT: 48,
 };
 
-function CollectionTab({ data }: { data: ScenarioData }) {
+function CollectionTab({ data, liveData }: { data: ScenarioData; liveData?: LiveData | null }) {
   const [selected, setSelected] = useState<(typeof COUNTRIES)[0] | null>(null);
   const isOwned = selected ? data.ownedVests.includes(selected.code) : false;
+  const liveInfo = selected ? liveData?.bibInfoByCountry[selected.code] : undefined;
   useEscClose(!!selected, () => setSelected(null));
 
   useEffect(() => {
@@ -2325,15 +2423,15 @@ function CollectionTab({ data }: { data: ScenarioData }) {
             <div className="mt-5 mx-6 grid grid-cols-3 gap-3">
               <div className="rounded-xl bg-gray-50 p-3 text-center">
                 <p className="text-[10px] text-on-surface-variant">FIFA 랭킹</p>
-                <p className="mt-1 text-xl font-russo text-surface-dark">{MOCK_FIFA_RANK[selected.code] ?? "-"}</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{liveInfo ? (liveInfo.fifaRank ?? "-") : (MOCK_FIFA_RANK[selected.code] ?? "-")}</p>
               </div>
               <div className="rounded-xl bg-gray-50 p-3 text-center">
                 <p className="text-[10px] text-on-surface-variant">획득 확률</p>
-                <p className="mt-1 text-xl font-russo text-surface-dark">{(100 / 48).toFixed(1)}%</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{liveInfo ? `${liveInfo.drawProbability.toFixed(1)}%` : `${(100 / 48).toFixed(1)}%`}</p>
               </div>
               <div className="rounded-xl bg-gray-50 p-3 text-center">
                 <p className="text-[10px] text-on-surface-variant">획득 수</p>
-                <p className="mt-1 text-xl font-russo text-surface-dark">{isOwned ? 1 : 0}</p>
+                <p className="mt-1 text-xl font-russo text-surface-dark">{liveInfo ? liveInfo.ownedCount : (isOwned ? 1 : 0)}</p>
               </div>
             </div>
 
