@@ -78,35 +78,6 @@ export async function GET(req: NextRequest) {
           />
         </div>
 
-        {/* Bottom stat bar */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 70,
-            background: "#1570ff",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-around",
-            padding: "0 60px",
-            color: "white",
-          }}
-        >
-          {[
-            { label: "MATCH", value: "7" },
-            { label: "LEVEL", value: "7" },
-            { label: "보낸 칭찬", value: "72" },
-            { label: "받은 칭찬", value: "48" },
-            { label: "POM", value: "3" },
-          ].map((s) => (
-            <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <span style={{ fontSize: 13, opacity: 0.8, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</span>
-              <span style={{ fontSize: 28, fontWeight: 700 }}>{s.value}</span>
-            </div>
-          ))}
-        </div>
       </div>
     ),
     {

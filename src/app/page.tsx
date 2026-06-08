@@ -78,6 +78,8 @@ const SCENARIO_DATA = {
     matchMission: { completed: 0, total: 3 },
     inviter: null as { name: string; country: string; imageUrl: string | null } | null,
     tokens: 0,
+    tokenHistory: [] as { date: string; label: string; amount: number }[],
+    tickets: { profileCreate: 0, gacha: 0 },
     attendance: { total: 0, checkedToday: false, weekDays: [false, false, false, false, false, false, false] as boolean[] },
   },
   active: {
@@ -120,6 +122,23 @@ const SCENARIO_DATA = {
     matchMission: { completed: 1, total: 3 },
     inviter: null,
     tokens: 1200,
+    tokenHistory: [
+      { date: "2026-06-08", label: "리워드팩 오픈", amount: 42 },
+      { date: "2026-06-08", label: "굿즈 뽑기", amount: -10 },
+      { date: "2026-06-07", label: "리워드팩 오픈", amount: 78 },
+      { date: "2026-06-07", label: "프로필 생성권 구매", amount: -10 },
+      { date: "2026-06-06", label: "매치데이 1 달성", amount: 100 },
+      { date: "2026-06-06", label: "리워드팩 오픈", amount: 15 },
+      { date: "2026-06-06", label: "굿즈 뽑기", amount: -10 },
+      { date: "2026-06-06", label: "굿즈 뽑기", amount: -10 },
+      { date: "2026-06-05", label: "리워드팩 오픈", amount: 55 },
+      { date: "2026-06-04", label: "출석 보너스", amount: 200 },
+      { date: "2026-06-04", label: "플랩 크루 삭스 구매", amount: -80 },
+      { date: "2026-06-03", label: "리워드팩 오픈", amount: 30 },
+      { date: "2026-06-02", label: "웰컴 보너스", amount: 500 },
+      { date: "2026-06-01", label: "리워드팩 오픈", amount: 300 },
+    ],
+    tickets: { profileCreate: 3, gacha: 2 },
     attendance: { total: 12, checkedToday: true, weekDays: [true, true, false, true, true, false, false] as boolean[] },
   },
   invited: {
@@ -143,6 +162,10 @@ const SCENARIO_DATA = {
     matchMission: { completed: 0, total: 3 },
     inviter: { name: "커스", country: "BRA", imageUrl: "/img/profile_cus.png" },
     tokens: 100,
+    tokenHistory: [
+      { date: "2026-06-02", label: "웰컴 보너스", amount: 100 },
+    ],
+    tickets: { profileCreate: 0, gacha: 0 },
     attendance: { total: 3, checkedToday: false, weekDays: [true, false, true, false, true, false, false] as boolean[] },
   },
 };
@@ -290,10 +313,17 @@ function VestPageInner() {
                   onClick={() => data.hasProfile && setProfilePickerOpen(true)}
                   className={`flex items-center justify-center w-16 h-16 bg-surface-dark ${data.hasProfile ? "cursor-pointer active:scale-95 transition-transform" : ""}`}
                 >
-                  <TwemojiFlag
-                    emoji={COUNTRIES.find(c => c.code === (data.profiles.find(p => p.id === activeProfileId)?.country ?? "JPN"))?.flag ?? "🇯🇵"}
-                    size={40}
-                  />
+                  {activeProfileId === 0 ? (
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <TwemojiFlag
+                      emoji={COUNTRIES.find(c => c.code === (data.profiles.find(p => p.id === activeProfileId)?.country ?? "JPN"))?.flag ?? "🇯🇵"}
+                      size={40}
+                    />
+                  )}
                 </button>
                 <div className="flex items-center justify-center w-16 bg-white p-2">
                   <img src="/img/symbol.svg" alt="WC26" className="w-12 h-auto" />
@@ -301,9 +331,20 @@ function VestPageInner() {
               </div>
               <div className="flex-1 flex justify-end -mr-5 lg:mr-0 lg:justify-center">
                 {data.hasProfile ? (
-                  <button onClick={() => setProfilePickerOpen(true)} className="active:scale-95 transition-transform">
-                    <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
-                  </button>
+                  activeProfileId === 0 ? (
+                    <button onClick={() => setProfilePickerOpen(true)} className="w-[260px] h-[260px] flex items-center justify-center active:scale-95 transition-transform">
+                      <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" opacity={0.6}>
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </div>
+                    </button>
+                  ) : (
+                    <button onClick={() => setProfilePickerOpen(true)} className="active:scale-95 transition-transform">
+                      <img src={data.profiles.find(p => p.id === activeProfileId)?.imageUrl ?? data.profiles[0]?.imageUrl ?? "/img/profile.png"} alt="Player" className="w-[260px] h-[260px] object-contain" />
+                    </button>
+                  )
                 ) : (
                   <button onClick={() => setProfilePickerOpen(true)} className="w-[260px] h-[260px] flex items-center justify-center active:scale-95 transition-transform">
                     <div className="w-32 h-32 rounded-full bg-white/20 flex items-center justify-center">
@@ -1228,6 +1269,26 @@ function ProfilePickerModal({
         </div>
 
         <div className="grid grid-cols-3 gap-3">
+          {/* Default profile option */}
+          <button onClick={() => onSelect(0)} className="flex flex-col items-center gap-1.5">
+            <div className={`relative w-full rounded-tr-[20px] overflow-hidden border-2 transition-all ${
+              activeProfileId === 0 ? "border-accent-green shadow-md" : "border-transparent"
+            }`} style={{ paddingBottom: "125%" }}>
+              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              {activeProfileId === 0 && (
+                <div className="absolute bottom-0 inset-x-0 bg-accent-green py-1 text-center">
+                  <span className="text-[9px] font-bold text-surface-dark">적용중</span>
+                </div>
+              )}
+            </div>
+            <span className="text-xs font-medium text-on-surface-variant">기본</span>
+          </button>
+
           {data.profiles.map((profile) => {
             const country = COUNTRIES.find((c) => c.code === profile.country)!;
             const isSelected = profile.id === activeProfileId;
@@ -2015,9 +2076,11 @@ function StoreTab({ data }: { data: ScenarioData }) {
   const [gachaOpen, setGachaOpen] = useState(false);
   const [gachaResult, setGachaResult] = useState<(typeof GACHA_POOL)[0] | null>(null);
   const [gachaSpinning, setGachaSpinning] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   useEscClose(!!selectedItem, () => setSelectedItem(null));
   useEscClose(gachaOpen && !gachaResult, () => setGachaOpen(false));
   useEscClose(!!gachaResult, () => { setGachaResult(null); setGachaOpen(false); });
+  useEscClose(historyOpen, () => setHistoryOpen(false));
 
   useEffect(() => {
     if (selectedItem) {
@@ -2030,11 +2093,36 @@ function StoreTab({ data }: { data: ScenarioData }) {
 
   return (
     <section className="bg-white px-5 py-8 overflow-hidden">
-      {/* Token Balance */}
-      <div className="flex items-center gap-2">
-        <img src="/img/token.svg" alt="token" className="h-6 w-6" draggable={false} />
-        <span className="text-2xl font-russo text-surface-dark">{data.tokens.toLocaleString()}</span>
-        <span className="text-sm text-on-surface-variant">토큰</span>
+      {/* Token & Ticket Balance */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <img src="/img/token.svg" alt="token" className="h-6 w-6" draggable={false} />
+          <span className="text-2xl font-russo text-surface-dark">{data.tokens.toLocaleString()}</span>
+          <span className="text-sm text-on-surface-variant">토큰</span>
+        </div>
+        <button
+          onClick={() => setHistoryOpen(true)}
+          className="text-sm text-on-surface-variant cursor-pointer active:opacity-60"
+        >
+          내역 &rsaquo;
+        </button>
+      </div>
+
+      <div className="mt-4 flex gap-3">
+        <div className="flex-1 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
+          <span className="text-2xl">🎨</span>
+          <div>
+            <p className="text-xs text-on-surface-variant">프로필 생성권</p>
+            <p className="text-lg font-bold text-surface-dark">{data.tickets.profileCreate}<span className="text-sm font-normal text-on-surface-variant">개</span></p>
+          </div>
+        </div>
+        <div className="flex-1 flex items-center gap-3 rounded-xl bg-gray-50 px-4 py-3">
+          <span className="text-2xl">🎰</span>
+          <div>
+            <p className="text-xs text-on-surface-variant">굿즈뽑기 이용권</p>
+            <p className="text-lg font-bold text-surface-dark">{data.tickets.gacha}<span className="text-sm font-normal text-on-surface-variant">개</span></p>
+          </div>
+        </div>
       </div>
 
       {/* Gacha Card */}
@@ -2150,6 +2238,61 @@ function StoreTab({ data }: { data: ScenarioData }) {
               >
                 닫기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Token History Bottom Sheet */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-[200] flex items-end lg:items-center lg:justify-center" onClick={() => setHistoryOpen(false)}>
+          <div className="absolute inset-0 bg-[rgba(0,0,0,0.5)]" />
+          <div className="relative w-full lg:max-w-md rounded-t-3xl lg:rounded-3xl bg-white pt-6 pb-10 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-gray-200 lg:hidden" />
+            <div className="px-6">
+              <h3 className="text-xl font-bold text-surface-dark">토큰 내역</h3>
+              <div className="mt-3 flex gap-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-accent-green" />
+                  <span className="text-sm text-on-surface-variant">획득</span>
+                  <span className="text-sm font-bold text-surface-dark">
+                    {data.tokenHistory.filter(h => h.amount > 0).reduce((s, h) => s + h.amount, 0).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-[#FF4029]" />
+                  <span className="text-sm text-on-surface-variant">사용</span>
+                  <span className="text-sm font-bold text-surface-dark">
+                    {Math.abs(data.tokenHistory.filter(h => h.amount < 0).reduce((s, h) => s + h.amount, 0)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 px-6 flex-1 overflow-y-auto">
+              {data.tokenHistory.length === 0 ? (
+                <p className="py-12 text-center text-sm text-on-surface-variant">토큰 내역이 없습니다</p>
+              ) : (
+                (() => {
+                  let lastDate = "";
+                  return data.tokenHistory.map((h, i) => {
+                    const showDate = h.date !== lastDate;
+                    lastDate = h.date;
+                    return (
+                      <div key={i}>
+                        {showDate && (
+                          <p className="mt-4 first:mt-0 mb-2 text-xs font-bold text-on-surface-variant">{h.date}</p>
+                        )}
+                        <div className="flex items-center justify-between py-2.5 border-b border-gray-100 last:border-0">
+                          <span className="text-sm text-surface-dark">{h.label}</span>
+                          <span className={`text-sm font-russo ${h.amount > 0 ? "text-accent-green" : "text-[#FF4029]"}`}>
+                            {h.amount > 0 ? "+" : ""}{h.amount.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()
+              )}
             </div>
           </div>
         </div>
