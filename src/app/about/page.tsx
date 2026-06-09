@@ -464,8 +464,8 @@ export default function AboutPage() {
             웰컴팩 2종 받아가세요
           </h2>
 
-          <div className="mt-8 mx-auto max-w-xs bg-[#f0f2f5] rounded-3xl p-5">
-            <img src="/img/profile_sample.png" alt="프로필 샘플" className="w-full object-contain rounded-2xl" draggable={false} />
+          <div className="mt-8 mx-auto max-w-xs">
+            <img src="/img/profile_sample.png" alt="프로필 샘플" className="w-full object-contain" draggable={false} />
           </div>
 
           <div className="mt-6 text-[15px] font-medium text-[#666] leading-relaxed">
