@@ -495,6 +495,13 @@ function VestPageInner() {
                 <div className="text-sm font-bold text-surface-dark">🚪 라커룸</div>
                 <div className="text-xs text-on-surface-variant mt-0.5">매치 라커룸 — 팀 편성, 프로필 확인</div>
               </a>
+              <a
+                href="/about"
+                className="block w-full rounded-xl border border-purple-300 bg-purple-50 px-4 py-3 text-left"
+              >
+                <div className="text-sm font-bold text-surface-dark">📖 이벤트 소개</div>
+                <div className="text-xs text-on-surface-variant mt-0.5">플랩월드 이벤트 소개 페이지</div>
+              </a>
             </div>
           </div>
         </div>

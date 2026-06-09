@@ -14,7 +14,7 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
 
-  const isHidden = pathname.startsWith("/profile/create") || pathname.startsWith("/match") || pathname.startsWith("/locker");
+  const isHidden = pathname.startsWith("/profile/create") || pathname.startsWith("/match") || pathname.startsWith("/locker") || pathname.startsWith("/about");
   if (isHidden) return null;
 
   return (
